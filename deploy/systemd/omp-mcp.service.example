@@ -1,0 +1,17 @@
+[Unit]
+Description=OMP MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=omp-mcp
+Group=omp-mcp
+WorkingDirectory=/opt/omp-mcp
+EnvironmentFile=/opt/omp-mcp/.env
+Environment=NODE_ENV=production
+ExecStart=/opt/omp-mcp/bin/bun run src/index.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
