@@ -10,19 +10,22 @@ export interface NativeTool {
   execute(args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
 }
 
-type JsonSchema = Record<string, any>;
+type JsonSchema = Record<string, unknown>;
 
-function toJsonSchema(parameters: any): JsonSchema {
-  if (typeof parameters?.toJsonSchema === "function") {
+function toJsonSchema(parameters: unknown): JsonSchema {
+  if (
+    parameters &&
+    (typeof parameters === "object" || typeof parameters === "function") &&
+    "toJsonSchema" in parameters &&
+    typeof parameters.toJsonSchema === "function"
+  ) {
     return parameters.toJsonSchema() as JsonSchema;
   }
   return { type: "object", additionalProperties: true };
 }
 
-function getToolDescription(tool: AgentTool<any, any>): string {
-  const description = typeof tool.description === "string" ? tool.description : "";
-  const summary = typeof (tool as any).summary === "string" ? (tool as any).summary : "";
-  return description || summary || tool.name;
+function getToolDescription(tool: AgentTool): string {
+  return tool.description || tool.summary || tool.name;
 }
 
 function resultToJson(value: unknown): unknown {
@@ -80,7 +83,7 @@ export class NativeToolRuntime {
       .getEnabledToolNames()
       .filter((name) => !name.startsWith("mcp__"))
       .map((name) => session.getToolByName(name))
-      .filter((tool): tool is AgentTool<any, any> => Boolean(tool))
+      .filter((tool): tool is AgentTool => Boolean(tool))
       .map((tool) => ({
         name: tool.name,
         description: getToolDescription(tool),

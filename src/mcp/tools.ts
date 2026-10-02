@@ -151,8 +151,8 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
           "MCP tool call completed",
         );
 
-        if (value && typeof value === "object" && Array.isArray((value as any).content)) {
-          return value as any;
+        if (value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).content)) {
+          return value as ReturnType<typeof result>;
         }
 
         return result(value);
