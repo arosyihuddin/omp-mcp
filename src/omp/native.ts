@@ -45,9 +45,6 @@ export class NativeToolRuntime {
     if (inFlight) return inFlight;
 
     const settings = Settings.isolated({
-      // Expose optional native tools whenever their implementation/dependency
-      // is actually available. Tools whose factory has a hard dependency (for
-      // example IDA) still stay absent when that dependency is unavailable.
       "astGrep.enabled": true,
       "github.enabled": true,
       "security.enabled": false,
@@ -59,9 +56,6 @@ export class NativeToolRuntime {
 
     const promise = createAgentSession({
       cwd: key,
-      // Let OMP resolve its complete native/extension tool set using its own
-      // settings, dependency gates, and extension discovery. MCP tools remain
-      // owned by the outer MCP server.
       settings,
       enableMCP: false,
       enableLsp: true,
