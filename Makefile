@@ -66,7 +66,19 @@ install:
 
 update:
 	@test "$$(id -u)" = "0" || (echo "Run 'make update' as root (use sudo)." && exit 1)
-	@$(MAKE) install
+	@if [ -n "$(VERSION)" ]; then \
+		version="$(VERSION)"; \
+		version="$${version#v}"; \
+		printf '%s\n' "$$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || { echo "Invalid release version: $(VERSION)"; exit 1; }; \
+		git fetch --tags origin; \
+		git rev-parse --verify "refs/tags/v$$version" >/dev/null 2>&1 || { echo "Git tag v$$version not found."; exit 1; }; \
+		tmp="$$(mktemp -d)"; \
+		trap 'rm -rf "$$tmp"' EXIT INT TERM; \
+		git archive --format=tar "v$$version" | tar -xf - -C "$$tmp"; \
+		$(MAKE) -C "$$tmp" install BUN="$(BUN)"; \
+	else \
+		$(MAKE) install; \
+	fi
 	@$(MAKE) restart
 
 start:

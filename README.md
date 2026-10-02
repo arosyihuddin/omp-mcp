@@ -83,11 +83,19 @@ To inspect logs:
 make logs
 ```
 
-To update an existing installation:
+To update an existing installation from the current checkout:
 
 ```bash
 sudo make update
 ```
+
+To deploy an exact released version, use its Git tag:
+
+```bash
+sudo make update VERSION=v0.1.0
+```
+
+When `VERSION` is provided, the update fetches the tag from the repository and installs exactly that release. Without `VERSION`, it installs the current working tree.
 
 To remove the application while preserving service data/workspaces:
 
@@ -232,6 +240,16 @@ Collab URLs should be treated as sensitive access links and should not be writte
 bun run typecheck
 bun test
 ```
+
+### Releases
+
+Releases use Semantic Versioning and Git tags. The `release` target validates the source, updates `package.json`, creates an annotated `vX.Y.Z` tag, and pushes the commit and tag to the remote.
+
+```bash
+make release VERSION=0.2.0
+```
+
+Use PATCH for backward-compatible fixes, MINOR for backward-compatible features, and MAJOR for breaking changes. Release from a clean `main` branch.
 
 ## Architecture
 
