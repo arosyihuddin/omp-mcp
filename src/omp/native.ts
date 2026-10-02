@@ -49,7 +49,6 @@ export class NativeToolRuntime {
       // is actually available. Tools whose factory has a hard dependency (for
       // example IDA) still stay absent when that dependency is unavailable.
       "astGrep.enabled": true,
-      "checkpoint.enabled": true,
       "github.enabled": true,
       "security.enabled": false,
       "find.enabled": "on",

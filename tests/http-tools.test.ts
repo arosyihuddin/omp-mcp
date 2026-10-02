@@ -40,8 +40,6 @@ const nativeTools = [
   "ast_edit",
   "debug",
   "lsp",
-  "checkpoint",
-  "rewind",
 ] as const;
 
 async function waitForServer() {
