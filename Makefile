@@ -142,7 +142,7 @@ release:
 	@RELEASE_VERSION="$(VERSION)" bun -e 'const p=JSON.parse(await Bun.file("package.json").text()); p.version=process.env.RELEASE_VERSION; await Bun.write("package.json", JSON.stringify(p,null,2)+"\n");'
 	@git diff --check
 	@git add package.json
-	@git commit -m "chore: release v$(VERSION)"
+	@if ! git diff --cached --quiet; then git commit -m "chore: release v$(VERSION)"; else echo "[release] package.json already at $(VERSION), skipping release commit."; fi
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	@git push origin main "v$(VERSION)"
 	@echo "[release] ✓ v$(VERSION) released and pushed."
