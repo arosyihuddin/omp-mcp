@@ -21,6 +21,19 @@ const sessionTools = [
 
 const filesystemTools = ["fs_find", "fs_grep"] as const;
 
+const computerTools = [
+  "mouse_move",
+  "mouse_click",
+  "mouse_drag",
+  "mouse_scroll",
+  "keyboard_press",
+  "keyboard_hotkey",
+  "keyboard_type",
+  "screenshot",
+] as const;
+
+const systemTools = ["system_info", "hardware_info", "capabilities"] as const;
+
 const nativeTools = [
   "read",
   "bash",
@@ -108,7 +121,7 @@ describe("MCP Streamable HTTP tool coverage", () => {
     try {
       const result = await client.listTools();
       const names = new Set(result.tools.map((tool) => tool.name));
-      const expected = [...sessionTools, ...filesystemTools, ...nativeTools];
+      const expected = [...sessionTools, ...filesystemTools, ...computerTools, ...systemTools, ...nativeTools];
 
       expect(result.tools).toHaveLength(expected.length);
 
