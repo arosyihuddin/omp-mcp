@@ -6,12 +6,60 @@ import { logger } from "../lib/logger";
 import { nativeRuntime } from "../omp/native";
 import { jsonSchemaToZod } from "./json-schema";
 
+let nativeToolsLogged = false;
+
 function result(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
 }
 
 function errorResult(message: string) {
   return { isError: true, content: [{ type: "text" as const, text: message }] };
+}
+
+function logValue(value: unknown, maxLength = 2000) {
+  let text: string;
+
+  try {
+    text = JSON.stringify(value);
+  } catch {
+    text = String(value);
+  }
+
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
+function getNativeToolAnnotations(name: string) {
+  if (["read", "glob", "grep", "find", "ast_grep", "web_search"].includes(name)) {
+    return {
+      readOnlyHint: true,
+      openWorldHint: name === "web_search",
+    };
+  }
+
+  if (["lsp", "todo", "new_context"].includes(name)) {
+    return {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    };
+  }
+
+  if (["write", "edit", "ast_edit", "context_notes", "learn", "manage_skill", "task", "debug", "bash", "eval"].includes(name)) {
+    return {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: name === "bash" || name === "eval",
+    };
+  }
+
+  return {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: true,
+  };
 }
 
 export async function registerTools(server: McpServer, manager: OmpSdkSessionManager) {
@@ -129,24 +177,18 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     server.registerTool(nativeTool.name, {
       description: nativeTool.description,
       inputSchema: jsonSchemaToZod(nativeTool.inputSchema),
+      annotations: getNativeToolAnnotations(nativeTool.name),
     }, async (args) => {
       const startedAt = performance.now();
-
-      logger.debug(
-        {
-          tool: nativeTool.name,
-          args,
-        },
-        "MCP tool call started",
-      );
+      logger.debug({ tool: nativeTool.name, args }, "MCP tool call");
 
       try {
         const value = await nativeTool.execute(args as Record<string, unknown>);
-
         logger.debug(
           {
             tool: nativeTool.name,
             durationMs: Math.round(performance.now() - startedAt),
+            result: logValue(value),
           },
           "MCP tool call completed",
         );
@@ -171,8 +213,11 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     });
   }
 
-  logger.info(
-    { count: nativeTools.length, tools: nativeTools.map((tool) => tool.name) },
-    "Registered native OMP tools",
-  );
+  if (!nativeToolsLogged) {
+    nativeToolsLogged = true;
+    logger.info(
+      { count: nativeTools.length, tools: nativeTools.map((tool) => tool.name) },
+      "Registered native OMP tools",
+    );
+  }
 }

@@ -66,7 +66,7 @@ export async function handleMcpHttpRequest(request: Request): Promise<Response> 
     },
     onsessionclosed: (id) => {
       sessions.delete(id);
-      logger.info({ sessionId: id }, "MCP HTTP session closed");
+      logger.debug({ sessionId: id }, "MCP HTTP session closed");
     },
   });
 
@@ -84,7 +84,7 @@ export async function handleMcpHttpRequest(request: Request): Promise<Response> 
 
   if (sessionIdForCleanup) {
     sessions.set(sessionIdForCleanup, { server, transport });
-    logger.info({ sessionId: sessionIdForCleanup }, "MCP HTTP session initialized");
+    logger.debug({ sessionId: sessionIdForCleanup }, "MCP HTTP session initialized");
   }
 
   return response;
