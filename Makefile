@@ -40,7 +40,24 @@ help:
 	@echo ""
 	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
 
-setup: install
+setup:
+	@test "$$(id -u)" = "0" || (echo "Run 'make setup' as root (use sudo)." && exit 1)
+	@set -a; if [ -f $(INSTALL_DIR)/.env ]; then . $(INSTALL_DIR)/.env; fi; set +a; \
+		transport="$${MCP_TRANSPORT:-http}"; host="$${MCP_HTTP_HOST:-127.0.0.1}"; port="$${MCP_HTTP_PORT:-48765}"; \
+		model="$${OMP_DEFAULT_MODEL:-onedoor/combo-deepseek-v4-flash}"; cwd="$${OMP_DEFAULT_CWD:-/var/lib/omp-mcp/workspace}"; \
+		if [ -f $(INSTALL_DIR)/.env ]; then \
+			printf 'Existing configuration found in $(INSTALL_DIR)/.env. Change it? [y/N]: '; read change; \
+			case "$$change" in y|Y) ;; *) echo "Keeping existing configuration."; exit 0;; esac; \
+		fi; \
+		printf 'MCP transport ['"$$transport"']: '; read value; transport="$${value:-$$transport}"; \
+		case "$$transport" in stdio|http|both) ;; *) echo "Invalid transport: $$transport"; exit 1;; esac; \
+		printf 'MCP HTTP host ['"$$host"']: '; read value; host="$${value:-$$host}"; \
+		printf 'MCP HTTP port ['"$$port"']: '; read value; port="$${value:-$$port}"; \
+		printf '%s\n' "$$port" | grep -Eq '^[0-9]+$$' || { echo "Invalid port: $$port"; exit 1; }; \
+		[ "$$port" -ge 1 ] && [ "$$port" -le 65535 ] || { echo "Port must be between 1 and 65535."; exit 1; }; \
+		printf 'OMP default model ['"$$model"']: '; read value; model="$${value:-$$model}"; \
+		printf 'OMP default cwd ['"$$cwd"']: '; read value; cwd="$${value:-$$cwd}"; \
+		$(MAKE) install SETUP_TRANSPORT="$$transport" SETUP_HOST="$$host" SETUP_PORT="$$port" SETUP_MODEL="$$model" SETUP_CWD="$$cwd"
 
 install:
 	@test "$$(id -u)" = "0" || (echo "Run 'make install' as root (use sudo)." && exit 1)
@@ -52,6 +69,13 @@ install:
 	cp -a src package.json bun.lock tsconfig.json README.md .env.example deploy $(INSTALL_DIR)/
 	install -m 0755 $(BUN) $(INSTALL_DIR)/bin/bun
 	@if [ ! -f $(INSTALL_DIR)/.env ]; then cp $(INSTALL_DIR)/.env.example $(INSTALL_DIR)/.env; fi
+	@if [ -n "$(SETUP_TRANSPORT)" ]; then \
+		sed -i 's|^MCP_TRANSPORT=.*|MCP_TRANSPORT=$(SETUP_TRANSPORT)|' $(INSTALL_DIR)/.env; \
+		sed -i 's|^MCP_HTTP_HOST=.*|MCP_HTTP_HOST=$(SETUP_HOST)|' $(INSTALL_DIR)/.env; \
+		sed -i 's|^MCP_HTTP_PORT=.*|MCP_HTTP_PORT=$(SETUP_PORT)|' $(INSTALL_DIR)/.env; \
+		sed -i 's|^OMP_DEFAULT_MODEL=.*|OMP_DEFAULT_MODEL=$(SETUP_MODEL)|' $(INSTALL_DIR)/.env; \
+		sed -i 's|^OMP_DEFAULT_CWD=.*|OMP_DEFAULT_CWD=$(SETUP_CWD)|' $(INSTALL_DIR)/.env; \
+	fi
 	cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun install --production --frozen-lockfile
 	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(INSTALL_DIR)
 	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(DATA_DIR)
