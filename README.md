@@ -7,7 +7,7 @@ It provides two capabilities:
 - an `omp_*` agent/session API for running and controlling OMP sessions;
 - OMP's native tools directly through the MCP server.
 
-The server supports both **Streamable HTTP** and **STDIO** transports. The default configuration is Streamable HTTP, which is suitable for running the server as a long-lived systemd service.
+The server supports both **Streamable HTTP** and **STDIO** transports. The default configuration is Streamable HTTP, which is suitable for running the server as a long-lived systemd service. For browser automation through OMP's Browser Relay, the deployment can also run the Relay as a separate systemd service.
 
 ## Status
 
@@ -50,7 +50,26 @@ sudo make start
 sudo make status
 ```
 
-`make setup` installs the application to `/opt/omp-mcp`, creates the `omp-mcp` service user, copies Bun to `/opt/omp-mcp/bin/bun`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the systemd unit, and enables it at boot.
+`make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and Browser Relay systemd units, and enables both services at boot. The services run as the existing `pstar7` user and use the Bun installation at `/home/pstar7/.bun/bin/bun`.
+
+The deployment includes two services:
+
+- `omp-mcp.service` — the MCP server, listening on the configured Streamable HTTP endpoint.
+- `omp-mcp-browser-relay.service` — OMP Browser Relay on `127.0.0.1:9224`, allowing OMP's browser tools to drive connected Chrome/Brave tabs through the Browser Relay extension.
+
+The Browser Relay service is intended to keep the local relay available for the browser extension. Install/connect the OMP Browser Relay extension once, then the service will restart automatically if the relay process exits.
+
+Check both services with:
+
+```bash
+sudo make status
+```
+
+Follow both services' logs with:
+
+```bash
+sudo make logs
+```
 
 The default deployment configuration uses Streamable HTTP:
 
@@ -118,6 +137,26 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 ## Tools
 
 The server exposes two layers:
+
+### Browser automation
+
+OMP's `eval` tool can use the global `browser` API. Browser Relay can adopt and control an existing Chrome/Brave tab when the OMP Browser Relay extension is connected.
+
+For a connected existing browser tab, use:
+
+```js
+const tab = await browser.open({
+  name: "current",
+  app: { relay: true },
+});
+
+return {
+  url: await tab.url(),
+  title: await tab.title(),
+};
+```
+
+`browser.tabs()` lists OMP-managed browser handles, not necessarily every physical tab currently open in Chrome/Brave. Relay is local and uses the user's real browser session, including its logged-in state.
 
 ### Agent API (`omp_*`)
 
