@@ -196,26 +196,23 @@ bun test
 
 ## Architecture
 
-```text
-                 External MCP Agent
-                         │
-                         ▼
-              Streamable HTTP / STDIO
-                         │
-                         ▼
-                  OMP MCP Server
-                   ┌─────┴─────┐
-                   │           │
-              Agent API    Native Tools
-               omp_*          │
-                   │           │
-                   └─────┬─────┘
-                         ▼
-                 OMP SDK / Runtime
-                         │
-                    ┌────┴────┐
-                    │         │
-                 OMP Agent   CollabHost
+```mermaid
+flowchart TD
+    A[External MCP Agent]
+    T[Streamable HTTP / STDIO]
+    S[OMP MCP Server]
+
+    A --> T
+    T --> S
+
+    S --> API[Agent API<br/>omp_*]
+    S --> N[Native OMP Tools]
+
+    API --> R[OMP SDK / Runtime]
+    N --> R
+
+    R --> AG[OMP Agent]
+    R --> C[CollabHost]
 ```
 
 ## Current limitations
