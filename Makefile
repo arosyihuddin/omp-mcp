@@ -1,5 +1,6 @@
 APP_NAME := omp-mcp
 SERVICE_NAME := $(APP_NAME).service
+RELAY_SERVICE_NAME := $(APP_NAME)-browser-relay.service
 INSTALL_DIR := /opt/$(APP_NAME)
 DATA_DIR := /var/lib/$(APP_NAME)
 WORKSPACE_DIR := $(DATA_DIR)/workspace
@@ -55,10 +56,11 @@ install:
 	chmod 0750 $(INSTALL_DIR)
 	chmod 0640 $(INSTALL_DIR)/.env
 	install -m 0644 deploy/systemd/omp-mcp.service.example $(SYSTEMD_DIR)/$(SERVICE_NAME)
+	install -m 0644 deploy/systemd/omp-mcp-browser-relay.service.example $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run src/index.ts|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
 	systemctl daemon-reload
-	systemctl enable $(SERVICE_NAME)
-	@echo "Installed $(APP_NAME). Start it with: sudo make start"
+	systemctl enable $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
+	@echo "Installed $(APP_NAME) and Browser Relay services. Start with: sudo make start"
 
 update:
 	@test "$$(id -u)" = "0" || (echo "Run 'make update' as root (use sudo)." && exit 1)
@@ -66,32 +68,34 @@ update:
 	@$(MAKE) restart
 
 start:
-	systemctl start $(SERVICE_NAME)
+	systemctl start $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 stop:
-	systemctl stop $(SERVICE_NAME)
+	systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME)
 
 restart:
-	systemctl restart $(SERVICE_NAME)
+	systemctl restart $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 status:
-	systemctl status $(SERVICE_NAME)
+	systemctl status $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 logs:
-	journalctl -u $(SERVICE_NAME) -f
+	journalctl -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f
 
 uninstall:
 	@test "$$(id -u)" = "0" || (echo "Run 'make uninstall' as root (use sudo)." && exit 1)
-	@echo "[uninstall] Stopping and disabling $(SERVICE_NAME)..."
-	@if systemctl cat $(SERVICE_NAME) >/dev/null 2>&1; then \
-		systemctl disable --now $(SERVICE_NAME); \
-	else \
-		echo "[uninstall] Service unit not found (already removed)."; \
-	fi
+	@echo "[uninstall] Stopping and disabling $(SERVICE_NAME) and $(RELAY_SERVICE_NAME)..."
+	@for service in $(SERVICE_NAME) $(RELAY_SERVICE_NAME); do \
+		if systemctl cat $$service >/dev/null 2>&1; then \
+			systemctl disable --now $$service; \
+		else \
+			echo "[uninstall] $$service not found (already removed)."; \
+		fi; \
+	done
 	@echo "[uninstall] Reloading systemd..."
 	systemctl daemon-reload
-	@echo "[uninstall] Removing $(SYSTEMD_DIR)/$(SERVICE_NAME)..."
-	rm -f $(SYSTEMD_DIR)/$(SERVICE_NAME)
+	@echo "[uninstall] Removing systemd units..."
+	rm -f $(SYSTEMD_DIR)/$(SERVICE_NAME) $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	@echo "[uninstall] Removing $(INSTALL_DIR)..."
 	rm -rf $(INSTALL_DIR)
 	@echo "[uninstall] Verifying..."

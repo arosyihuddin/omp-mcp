@@ -48,6 +48,8 @@ export class NativeToolRuntime {
     if (inFlight) return inFlight;
 
     const settings = Settings.isolated({
+      "browser.enabled": true,
+      "browser.relay": true,
       "astGrep.enabled": true,
       "github.enabled": true,
       "security.enabled": false,
