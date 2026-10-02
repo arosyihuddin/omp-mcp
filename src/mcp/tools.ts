@@ -5,6 +5,7 @@ import { config } from "../lib/config";
 import { logger } from "../lib/logger";
 import { nativeRuntime } from "../omp/native";
 import { jsonSchemaToZod } from "./json-schema";
+import { fsFind, fsGrep } from "../fs/search";
 
 let nativeToolsLogged = false;
 
@@ -63,6 +64,57 @@ function getNativeToolAnnotations(name: string) {
 }
 
 export async function registerTools(server: McpServer, manager: OmpSdkSessionManager) {
+  server.registerTool("fs_find", {
+    description: "Fast filesystem search for files and directories using fd. Suitable for large directory trees; read-only.",
+    inputSchema: {
+      pattern: z.string().optional(),
+      path: z.string().min(1).optional(),
+      type: z.enum(["file", "directory", "both"]).optional().default("both"),
+      hidden: z.boolean().optional().default(false),
+      max_results: z.number().int().min(1).max(1000).optional().default(100),
+      max_depth: z.number().int().min(0).optional(),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ pattern, path, type, hidden, max_results, max_depth }, extra) => {
+    const startedAt = performance.now();
+    const args = { pattern, path, type, hidden, max_results, max_depth };
+    logger.debug({ tool: "fs_find", args }, "MCP tool call");
+    try {
+      const value = await fsFind(args, config.ompDefaultCwd, extra.signal);
+      logger.debug({ tool: "fs_find", durationMs: Math.round(performance.now() - startedAt), result: logValue(value) }, "MCP tool call completed");
+      return result(value);
+    } catch (error) {
+      logger.error({ err: error, tool: "fs_find", durationMs: Math.round(performance.now() - startedAt) }, "MCP tool call failed");
+      return errorResult(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  server.registerTool("fs_grep", {
+    description: "Fast recursive content search using ripgrep. Suitable for large directory trees; read-only.",
+    inputSchema: {
+      pattern: z.string().min(1),
+      path: z.string().min(1).optional(),
+      glob: z.string().min(1).optional(),
+      hidden: z.boolean().optional().default(false),
+      max_results: z.number().int().min(1).max(1000).optional().default(100),
+      max_depth: z.number().int().min(0).optional(),
+      fixed_strings: z.boolean().optional().default(false),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ pattern, path, glob, hidden, max_results, max_depth, fixed_strings }, extra) => {
+    const startedAt = performance.now();
+    const args = { pattern, path, glob, hidden, max_results, max_depth, fixed_strings };
+    logger.debug({ tool: "fs_grep", args }, "MCP tool call");
+    try {
+      const value = await fsGrep(args, config.ompDefaultCwd, extra.signal);
+      logger.debug({ tool: "fs_grep", durationMs: Math.round(performance.now() - startedAt), result: logValue(value) }, "MCP tool call completed");
+      return result(value);
+    } catch (error) {
+      logger.error({ err: error, tool: "fs_grep", durationMs: Math.round(performance.now() - startedAt) }, "MCP tool call failed");
+      return errorResult(error instanceof Error ? error.message : String(error));
+    }
+  });
+
   server.registerTool("omp_run", {
     description: "Start an OMP coding-agent session. Optionally select a specific model.",
     inputSchema: {

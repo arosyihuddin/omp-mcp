@@ -19,6 +19,8 @@ const sessionTools = [
   "omp_collab",
 ] as const;
 
+const filesystemTools = ["fs_find", "fs_grep"] as const;
+
 const nativeTools = [
   "read",
   "bash",
@@ -106,7 +108,7 @@ describe("MCP Streamable HTTP tool coverage", () => {
     try {
       const result = await client.listTools();
       const names = new Set(result.tools.map((tool) => tool.name));
-      const expected = [...sessionTools, ...nativeTools];
+      const expected = [...sessionTools, ...filesystemTools, ...nativeTools];
 
       expect(result.tools).toHaveLength(expected.length);
 
@@ -129,6 +131,12 @@ describe("MCP Streamable HTTP tool coverage", () => {
 
       const readContent = read.content as Array<{ type: string; text?: string }> | undefined;
       expect(readContent?.some((item) => item.text?.includes("omp-mcp"))).toBe(true);
+
+      const fsFind = await callTool(client, "fs_find", { pattern: "package.json", path: root });
+      expect(fsFind.isError).not.toBe(true);
+
+      const fsGrep = await callTool(client, "fs_grep", { pattern: "omp-mcp", path: root, glob: "package.json" });
+      expect(fsGrep.isError).not.toBe(true);
 
       const glob = await callTool(client, "glob", { path: "*.json" });
       expect(glob.isError).not.toBe(true);
