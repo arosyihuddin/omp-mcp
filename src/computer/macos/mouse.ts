@@ -25,6 +25,10 @@ export async function clickMacMouse(button: string, clicks: number, x: number, y
   for (let i = 0; i < clicks; i++) await appleScript("tell application \"System Events\" to " + click);
 }
 
+export async function dragMacMouse(_fromX: number, _fromY: number, _toX: number, _toY: number) {
+  throw new Error("macOS mouse drag is not implemented");
+}
+
 export async function scrollMacMouse(dx: number, dy: number) {
   if (dx !== 0) throw new Error("macOS horizontal scroll is not implemented");
   if (dy !== 0) return appleScript("tell application \"System Events\" to scroll " + dy);

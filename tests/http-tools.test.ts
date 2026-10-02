@@ -22,6 +22,12 @@ const sessionTools = [
 const filesystemTools = ["fs_find", "fs_grep"] as const;
 
 const computerTools = [
+  "window_list",
+  "window_active",
+  "window_focus",
+  "window_close",
+  "window_move",
+  "app_list",
   "mouse_move",
   "mouse_click",
   "mouse_drag",

@@ -1,15 +1,66 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { takeScreenshot, mouseMove, mouseClick, mouseDrag, mouseScroll, keyPress, typeText } from "../../computer";
+import { takeScreenshot, listWindows, activeWindow, focusWindow, closeWindow, moveWindow, listApps, mouseMove, mouseClick, mouseDrag, mouseScroll, keyPress, typeText } from "../../computer";
 import { errorMessage, errorResult, result } from "./shared";
 
 const input = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false } as const;
 const screenshotOutput = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 
 export function registerComputerTools(server: McpServer) {
+  server.registerTool("window_list", {
+    description: "List currently open desktop windows and their workspace, monitor, application, and focus state.",
+    inputSchema: {}, annotations: screenshotOutput,
+  }, async () => {
+    try { return result({ windows: await listWindows() }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
+  server.registerTool("window_active", {
+    description: "Get the desktop window that currently has keyboard focus.",
+    inputSchema: {}, annotations: screenshotOutput,
+  }, async () => {
+    try { return result({ window: await activeWindow() }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
+  server.registerTool("window_focus", {
+    description: "Focus a desktop window by its window id.",
+    inputSchema: { id: z.string().min(1) }, annotations: input,
+  }, async ({ id }) => {
+    try { await focusWindow(id); return result({ ok: true, action: "window_focus", id }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
+  server.registerTool("window_close", {
+    description: "Close a desktop window by its window id.",
+    inputSchema: { id: z.string().min(1) }, annotations: input,
+  }, async ({ id }) => {
+    try { await closeWindow(id); return result({ ok: true, action: "window_close", id }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
+  server.registerTool("window_move", {
+    description: "Move a desktop window to a workspace by its window id.",
+    inputSchema: { id: z.string().min(1), workspace: z.string().min(1) }, annotations: input,
+  }, async ({ id, workspace }) => {
+    try { await moveWindow(id, workspace); return result({ ok: true, action: "window_move", id, workspace }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
+  server.registerTool("app_list", {
+    description: "List desktop applications available on the operating system. Supports optional search and result limit.",
+    inputSchema: {
+      query: z.string().optional().describe("Search by application name, id, or executable."),
+      limit: z.number().int().min(1).max(100).optional().default(20).describe("Maximum number of applications to return."),
+    }, annotations: screenshotOutput,
+  }, async ({ query, limit }) => {
+    try { return result({ apps: await listApps({ query, limit }) }); }
+    catch (error) { return errorResult(errorMessage(error)); }
+  });
+
   server.registerTool("mouse_move", {
     description: "Move the mouse pointer to absolute screen coordinates.",
-    inputSchema: { x: z.number().finite(), y: z.number().finite() }, annotations: { ...input, idempotentHint: true },
+    inputSchema: { x: z.number(), y: z.number() }, annotations: { ...input, idempotentHint: true },
   }, async ({ x, y }) => {
     try { await mouseMove(x, y); return result({ ok: true, action: "mouse_move", x, y }); }
     catch (error) { return errorResult(errorMessage(error)); }
@@ -18,7 +69,7 @@ export function registerComputerTools(server: McpServer) {
   server.registerTool("mouse_click", {
     description: "Click the mouse at screen coordinates. Defaults to left click.",
     inputSchema: {
-      x: z.number().finite(), y: z.number().finite(),
+      x: z.number(), y: z.number(),
       button: z.enum(["left", "right", "middle", "back", "forward"]).optional().default("left"),
       clicks: z.number().int().min(1).max(10).optional().default(1),
     }, annotations: input,
@@ -29,7 +80,7 @@ export function registerComputerTools(server: McpServer) {
 
   server.registerTool("mouse_drag", {
     description: "Drag the left mouse button from one screen coordinate to another.",
-    inputSchema: { from_x: z.number().finite(), from_y: z.number().finite(), to_x: z.number().finite(), to_y: z.number().finite() },
+    inputSchema: { from_x: z.number(), from_y: z.number(), to_x: z.number(), to_y: z.number() },
     annotations: input,
   }, async ({ from_x, from_y, to_x, to_y }) => {
     try { await mouseDrag(from_x, from_y, to_x, to_y); return result({ ok: true, action: "mouse_drag", from_x, from_y, to_x, to_y }); }
@@ -38,7 +89,7 @@ export function registerComputerTools(server: McpServer) {
 
   server.registerTool("mouse_scroll", {
     description: "Scroll the mouse wheel. Positive or negative values control direction.",
-    inputSchema: { dx: z.number().finite().optional().default(0), dy: z.number().finite().optional().default(0) },
+    inputSchema: { dx: z.number().optional().default(0), dy: z.number().optional().default(0) },
     annotations: { ...input, idempotentHint: true },
   }, async ({ dx, dy }) => {
     try { await mouseScroll(dx, dy); return result({ ok: true, action: "mouse_scroll", dx, dy }); }
