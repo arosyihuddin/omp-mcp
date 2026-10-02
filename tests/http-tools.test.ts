@@ -36,7 +36,6 @@ const nativeTools = [
   "write",
   "learn",
   "manage_skill",
-  "security_scan",
   "ast_grep",
   "ast_edit",
   "debug",

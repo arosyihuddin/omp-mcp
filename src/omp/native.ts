@@ -51,7 +51,7 @@ export class NativeToolRuntime {
       "astGrep.enabled": true,
       "checkpoint.enabled": true,
       "github.enabled": true,
-      "security.enabled": true,
+      "security.enabled": false,
       "find.enabled": "on",
       "compaction.experimentalContextManagement": true,
       "autolearn.enabled": true,
