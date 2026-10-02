@@ -18,7 +18,7 @@ BUN := $(shell getent passwd $(SUDO_USER) | cut -d: -f6)/.bun/bin/bun
 endif
 endif
 
-.PHONY: help setup install update uninstall purge start stop restart status logs test typecheck
+.PHONY: help setup install update uninstall purge start stop restart status logs test typecheck release
 
 help:
 	@echo "OMP MCP - available targets"
@@ -37,6 +37,8 @@ help:
 	@echo ""
 	@echo "  test        Run tests"
 	@echo "  typecheck   Run TypeScript typecheck"
+	@echo ""
+	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
 
 setup: install
 
@@ -125,3 +127,22 @@ test:
 
 typecheck:
 	bun run typecheck
+
+release:
+	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=0.1.0" && exit 1)
+	@printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || (echo "Invalid SemVer: $(VERSION)" && exit 1)
+	@test "$$(git branch --show-current)" = "main" || (echo "Release must be created from the main branch." && exit 1)
+	@test -z "$$(git status --porcelain)" || (echo "Git working tree must be clean before release." && exit 1)
+	@test -z "$$(git tag --list v$(VERSION))" || (echo "Git tag v$(VERSION) already exists." && exit 1)
+	@echo "[release] Validating source..."
+	@$(MAKE) typecheck
+	@$(MAKE) test
+	@git diff --check
+	@echo "[release] Updating package.json to $(VERSION)..."
+	@RELEASE_VERSION="$(VERSION)" bun -e 'const p=JSON.parse(await Bun.file("package.json").text()); p.version=process.env.RELEASE_VERSION; await Bun.write("package.json", JSON.stringify(p,null,2)+"\n");'
+	@git diff --check
+	@git add package.json
+	@git commit -m "chore: release v$(VERSION)"
+	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@git push origin main "v$(VERSION)"
+	@echo "[release] ✓ v$(VERSION) released and pushed."
