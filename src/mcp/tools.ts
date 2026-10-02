@@ -40,7 +40,8 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
   inputSchema: {
     session_id: z.string().min(1),
   },
-}, async ({ session_id }) => {
+  }, async ({ session_id }) => {
+    logger.debug({ tool: "omp_collab", sessionId: session_id }, "MCP tool call");
     const collab = manager.getCollab(session_id);
     return collab
       ? result({ session_id, collab })
@@ -51,6 +52,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     description: "Get the current status and metadata for an OMP session.",
     inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
+    logger.debug({ tool: "omp_status", sessionId: session_id }, "MCP tool call");
     const session = manager.get(session_id);
     return session ? result(session) : errorResult(`Unknown session: ${session_id}`);
   });
@@ -59,6 +61,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     description: "Get the latest result and metadata for an OMP session.",
     inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
+    logger.debug({ tool: "omp_result", sessionId: session_id }, "MCP tool call");
     const session = manager.get(session_id);
     if (!session) return errorResult(`Unknown session: ${session_id}`);
     return result({
@@ -76,6 +79,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
       task: z.string().min(1),
     },
   }, async ({ session_id, task }) => {
+    logger.debug({ tool: "omp_resume", sessionId: session_id }, "MCP tool call");
     try {
       return result(await manager.resume(session_id, task));
     } catch (error) {
@@ -87,6 +91,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     description: "Interrupt a running OMP session.",
     inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
+    logger.debug({ tool: "omp_interrupt", sessionId: session_id }, "MCP tool call");
     const ok = await manager.interrupt(session_id);
     return ok
       ? result({ session_id, status: "interrupted" })
@@ -97,6 +102,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
     description: "Dispose an OMP session and remove it from the MCP server.",
     inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
+    logger.debug({ tool: "omp_dispose", sessionId: session_id }, "MCP tool call");
     if (!manager.get(session_id)) {
       return errorResult(`Unknown session: ${session_id}`);
     }
@@ -111,6 +117,7 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
       status: z.enum(["all", "starting", "running", "completed", "failed", "interrupted"]).optional().default("all"),
     },
   }, async ({ status }) => {
+    logger.debug({ tool: "omp_list", status }, "MCP tool call");
     const sessions = manager.list().filter((session) => status === "all" || session.status === status);
     return result({ sessions });
   });
@@ -123,14 +130,42 @@ export async function registerTools(server: McpServer, manager: OmpSdkSessionMan
       description: nativeTool.description,
       inputSchema: jsonSchemaToZod(nativeTool.inputSchema),
     }, async (args) => {
+      const startedAt = performance.now();
+
+      logger.debug(
+        {
+          tool: nativeTool.name,
+          args,
+        },
+        "MCP tool call started",
+      );
+
       try {
         const value = await nativeTool.execute(args as Record<string, unknown>);
+
+        logger.debug(
+          {
+            tool: nativeTool.name,
+            durationMs: Math.round(performance.now() - startedAt),
+          },
+          "MCP tool call completed",
+        );
+
         if (value && typeof value === "object" && Array.isArray((value as any).content)) {
           return value as any;
         }
+
         return result(value);
       } catch (error) {
-        logger.error({ err: error, tool: nativeTool.name }, "Native OMP tool failed");
+        logger.error(
+          {
+            err: error,
+            tool: nativeTool.name,
+            durationMs: Math.round(performance.now() - startedAt),
+          },
+          "MCP tool call failed",
+        );
+
         return errorResult(error instanceof Error ? error.message : String(error));
       }
     });
