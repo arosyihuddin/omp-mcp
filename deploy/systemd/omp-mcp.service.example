@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=omp-mcp
-Group=omp-mcp
+User=pstar7
+Group=pstar7
 WorkingDirectory=/opt/omp-mcp
 EnvironmentFile=/opt/omp-mcp/.env
+Environment=HOME=/home/pstar7
 Environment=NODE_ENV=production
 ExecStart=/opt/omp-mcp/bin/bun run src/index.ts
 Restart=always

@@ -3,8 +3,8 @@ SERVICE_NAME := $(APP_NAME).service
 INSTALL_DIR := /opt/$(APP_NAME)
 DATA_DIR := /var/lib/$(APP_NAME)
 WORKSPACE_DIR := $(DATA_DIR)/workspace
-SERVICE_USER := $(APP_NAME)
-SERVICE_GROUP := $(APP_NAME)
+SERVICE_USER := pstar7
+SERVICE_GROUP := pstar7
 SYSTEMD_DIR := /etc/systemd/system
 
 # Override with `make BUN=/path/to/bun setup` when needed.
@@ -42,17 +42,15 @@ setup: install
 install:
 	@test "$$(id -u)" = "0" || (echo "Run 'make install' as root (use sudo)." && exit 1)
 	@command -v $(BUN) >/dev/null 2>&1 || (echo "Bun not found at $(BUN)." && exit 1)
-	@if ! getent group $(SERVICE_GROUP) >/dev/null; then groupadd --system $(SERVICE_GROUP); fi
-	@if ! id -u $(SERVICE_USER) >/dev/null 2>&1; then useradd --system --gid $(SERVICE_GROUP) --home-dir $(DATA_DIR) --create-home --shell /usr/sbin/nologin $(SERVICE_USER); fi
-	install -d -o root -g $(SERVICE_GROUP) -m 0755 $(INSTALL_DIR)
-	install -d -o root -g $(SERVICE_GROUP) -m 0755 $(INSTALL_DIR)/bin
+	install -d -o $(SERVICE_USER) -g $(SERVICE_GROUP) -m 0755 $(INSTALL_DIR)
+	install -d -o $(SERVICE_USER) -g $(SERVICE_GROUP) -m 0755 $(INSTALL_DIR)/bin
 	install -d -o $(SERVICE_USER) -g $(SERVICE_GROUP) -m 0755 $(DATA_DIR)
 	install -d -o $(SERVICE_USER) -g $(SERVICE_GROUP) -m 0755 $(WORKSPACE_DIR)
 	cp -a src package.json bun.lock tsconfig.json README.md .env.example deploy $(INSTALL_DIR)/
 	install -m 0755 $(BUN) $(INSTALL_DIR)/bin/bun
 	@if [ ! -f $(INSTALL_DIR)/.env ]; then cp $(INSTALL_DIR)/.env.example $(INSTALL_DIR)/.env; fi
 	cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun install --production --frozen-lockfile
-	chown -R root:$(SERVICE_GROUP) $(INSTALL_DIR)
+	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(INSTALL_DIR)
 	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(DATA_DIR)
 	chmod 0750 $(INSTALL_DIR)
 	chmod 0640 $(INSTALL_DIR)/.env
@@ -109,21 +107,9 @@ purge: uninstall
 	@test "$$(id -u)" = "0" || (echo "Run 'make purge' as root (use sudo)." && exit 1)
 	@echo "[purge] Removing $(DATA_DIR)..."
 	rm -rf $(DATA_DIR)
-	@echo "[purge] Removing service user $(SERVICE_USER)..."
-	@if id -u $(SERVICE_USER) >/dev/null 2>&1; then \
-		userdel $(SERVICE_USER); \
-	else \
-		echo "[purge] Service user not found (already removed)."; \
-	fi
-	@echo "[purge] Removing service group $(SERVICE_GROUP)..."
-	@if getent group $(SERVICE_GROUP) >/dev/null 2>&1; then \
-		groupdel $(SERVICE_GROUP); \
-	else \
-		echo "[purge] Service group not found (already removed)."; \
-	fi
 	@echo "[purge] Verifying..."
-	@if [ ! -e $(DATA_DIR) ] && ! id -u $(SERVICE_USER) >/dev/null 2>&1 && ! getent group $(SERVICE_GROUP) >/dev/null 2>&1; then \
-		echo "[purge] ✓ Data, service user, and service group removed."; \
+	@if [ ! -e $(DATA_DIR) ]; then \
+		echo "[purge] ✓ Data and application state removed."; \
 	else \
 		echo "[purge] ✗ Cleanup verification failed."; \
 		exit 1; \
