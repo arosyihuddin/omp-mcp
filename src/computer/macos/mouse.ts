@@ -17,11 +17,11 @@ export async function moveMacMouse(x: number, y: number) {
   return appleScript("tell application \"System Events\" to move mouse to {" + x + ", " + y + "}");
 }
 
-export async function clickMacMouse(button: string, clicks: number, x: number, y: number) {
+export async function clickMacMouse(button: string, clicks: number) {
   if (button !== "left" && button !== "right") throw new Error("macOS currently supports left/right click");
   const click = button === "right"
-    ? "click at {" + x + ", " + y + "} using {control down}"
-    : "click at {" + x + ", " + y + "}";
+    ? "click using {control down}"
+    : "click";
   for (let i = 0; i < clicks; i++) await appleScript("tell application \"System Events\" to " + click);
 }
 
