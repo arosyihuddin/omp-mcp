@@ -47,11 +47,11 @@ export async function dragLinuxMouse(fromX: number, fromY: number, toX: number, 
 
 export async function scrollLinuxMouse(dx: number, dy: number) {
   if (dx !== 0) {
-    const result = await run("ydotool", ["mousemove", "--wheel", String(dx), "0"]);
+    const result = await run("ydotool", ["mousemove", "--wheel", "--", String(dx), "0"]);
     if (result.code !== 0) throw new Error(result.stderr || "ydotool horizontal scroll failed");
   }
   if (dy !== 0) {
-    const result = await run("ydotool", ["mousemove", "--wheel", "0", String(dy)]);
+    const result = await run("ydotool", ["mousemove", "--wheel", "--", "0", String(-dy)]);
     if (result.code !== 0) throw new Error(result.stderr || "ydotool vertical scroll failed");
   }
 }
