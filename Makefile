@@ -1,6 +1,7 @@
 APP_NAME := omp-mcp
 SERVICE_NAME := $(APP_NAME).service
 RELAY_SERVICE_NAME := $(APP_NAME)-browser-relay.service
+YDOTOOL_SERVICE_NAME := ydotoold.service
 INSTALL_DIR := /opt/$(APP_NAME)
 DATA_DIR := /var/lib/$(APP_NAME)
 WORKSPACE_DIR := $(DATA_DIR)/workspace
@@ -82,11 +83,12 @@ install:
 	chmod 0750 $(INSTALL_DIR)
 	chmod 0640 $(INSTALL_DIR)/.env
 	install -m 0644 deploy/systemd/omp-mcp.service.example $(SYSTEMD_DIR)/$(SERVICE_NAME)
+	install -m 0644 deploy/systemd/ydotoold.service.example $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
 	install -m 0644 deploy/systemd/omp-mcp-browser-relay.service.example $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run src/index.ts|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
 	systemctl daemon-reload
-	systemctl enable $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
-	@echo "Installed $(APP_NAME) and Browser Relay services. Start with: sudo make start"
+	systemctl enable $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
+	@echo "Installed ydotoold, $(APP_NAME), and Browser Relay services. Start with: sudo make start"
 
 update:
 	@test "$$(id -u)" = "0" || (echo "Run 'make update' as root (use sudo)." && exit 1)
@@ -106,24 +108,24 @@ update:
 	@$(MAKE) restart
 
 start:
-	systemctl start $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
+	systemctl start $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 stop:
-	systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME)
+	systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME) $(YDOTOOL_SERVICE_NAME)
 
 restart:
-	systemctl restart $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
+	systemctl restart $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 status:
-	systemctl status $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
+	systemctl status $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 
 logs:
-	journalctl -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f
+	journalctl -u $(YDOTOOL_SERVICE_NAME) -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f
 
 uninstall:
 	@test "$$(id -u)" = "0" || (echo "Run 'make uninstall' as root (use sudo)." && exit 1)
 	@echo "[uninstall] Stopping and disabling $(SERVICE_NAME) and $(RELAY_SERVICE_NAME)..."
-	@for service in $(SERVICE_NAME) $(RELAY_SERVICE_NAME); do \
+	@for service in $(SERVICE_NAME) $(RELAY_SERVICE_NAME) $(YDOTOOL_SERVICE_NAME); do \
 		if systemctl cat $$service >/dev/null 2>&1; then \
 			systemctl disable --now $$service; \
 		else \
@@ -133,7 +135,7 @@ uninstall:
 	@echo "[uninstall] Reloading systemd..."
 	systemctl daemon-reload
 	@echo "[uninstall] Removing systemd units..."
-	rm -f $(SYSTEMD_DIR)/$(SERVICE_NAME) $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
+	rm -f $(SYSTEMD_DIR)/$(SERVICE_NAME) $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME) $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
 	@echo "[uninstall] Removing $(INSTALL_DIR)..."
 	rm -rf $(INSTALL_DIR)
 	@echo "[uninstall] Verifying..."

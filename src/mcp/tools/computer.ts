@@ -67,14 +67,13 @@ export function registerComputerTools(server: McpServer) {
   });
 
   server.registerTool("mouse_click", {
-    description: "Click the mouse at screen coordinates. Defaults to left click.",
+    description: "Click the mouse at the current cursor position. Defaults to left click.",
     inputSchema: {
-      x: z.number(), y: z.number(),
       button: z.enum(["left", "right", "middle", "back", "forward"]).optional().default("left"),
       clicks: z.number().int().min(1).max(10).optional().default(1),
     }, annotations: input,
-  }, async ({ x, y, button, clicks }) => {
-    try { await mouseClick(button, clicks, x, y); return result({ ok: true, action: "mouse_click", x, y, button, clicks }); }
+  }, async ({ button, clicks }) => {
+    try { await mouseClick(button, clicks); return result({ ok: true, action: "mouse_click", button, clicks }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
