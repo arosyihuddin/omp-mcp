@@ -5,19 +5,19 @@ YDOTOOL_SERVICE_NAME := ydotoold.service
 INSTALL_DIR := /opt/$(APP_NAME)
 DATA_DIR := /var/lib/$(APP_NAME)
 WORKSPACE_DIR := $(DATA_DIR)/workspace
-SERVICE_USER := pstar7
-SERVICE_GROUP := pstar7
+SERVICE_USER ?= $(or $(SUDO_USER),$(shell id -un))
+SERVICE_GROUP ?= $(shell id -gn $(SERVICE_USER))
+SERVICE_HOME := $(shell getent passwd $(SERVICE_USER) | cut -d: -f6)
 SYSTEMD_DIR := /etc/systemd/system
 
 # Override with `make BUN=/path/to/bun setup` when needed.
 # Otherwise, resolve Bun from PATH or from the invoking user's ~/.bun install.
 BUN ?= $(shell command -v bun 2>/dev/null || true)
+ifneq ($(strip $(BUN)),)
+else
+BUN := $(SERVICE_HOME)/.bun/bin/bun
+endif
 
-ifeq ($(strip $(BUN)),)
-ifneq ($(strip $(SUDO_USER)),root)
-BUN := $(shell getent passwd $(SUDO_USER) | cut -d: -f6)/.bun/bin/bun
-endif
-endif
 
 .PHONY: help setup install update uninstall purge start stop restart status logs test typecheck release
 
@@ -85,7 +85,10 @@ install:
 	install -m 0644 deploy/systemd/omp-mcp.service.example $(SYSTEMD_DIR)/$(SERVICE_NAME)
 	install -m 0644 deploy/systemd/ydotoold.service.example $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
 	install -m 0644 deploy/systemd/omp-mcp-browser-relay.service.example $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
+	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|; s|^Environment=HOME=.*|Environment=HOME=$(SERVICE_HOME)|; s|^Environment=PATH=.*|Environment=PATH=$(INSTALL_DIR)/bin:/usr/local/bin:/usr/bin:/bin|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
 	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run src/index.ts|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
+	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|' $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
+	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|; s|^Environment=HOME=.*|Environment=HOME=$(SERVICE_HOME)|; s|^Environment=PATH=.*|Environment=PATH=$(SERVICE_HOME)/.bun/bin:/usr/local/bin:/usr/bin:/bin|; s|^ExecStart=.*|ExecStart=$(SERVICE_HOME)/.bun/bin/omp browser-relay|' $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	systemctl daemon-reload
 	systemctl enable $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
 	@echo "Installed ydotoold, $(APP_NAME), and Browser Relay services. Start with: sudo make start"
