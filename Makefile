@@ -19,27 +19,103 @@ BUN := $(SERVICE_HOME)/.bun/bin/bun
 endif
 
 
-.PHONY: help setup install update uninstall purge start stop restart status logs test typecheck release
+.PHONY: help setup install update uninstall purge start stop restart status logs start-ydotoold stop-ydotoold restart-ydotoold status-ydotoold logs-ydotoold start-omp stop-omp restart-omp status-omp logs-omp start-relay stop-relay restart-relay status-relay logs-relay test typecheck release
 
 help:
 	@echo "OMP MCP - available targets"
 	@echo ""
-	@echo "  setup       Install and enable the systemd service"
-	@echo "  install     Install the application and systemd service"
-	@echo "  update      Reinstall the application and restart the service"
-	@echo "  uninstall   Remove the service and application (preserve data)"
+	@echo "  setup       Install and enable the systemd services"
+	@echo "  install     Install the application and systemd services"
+	@echo "  update      Reinstall the application and restart the services"
+	@echo "  uninstall   Remove the services and application (preserve data)"
 	@echo "  purge       Uninstall and remove all service data/workspaces"
 	@echo ""
-	@echo "  start       Start the systemd service"
-	@echo "  stop        Stop the systemd service"
-	@echo "  restart     Restart the systemd service"
-	@echo "  status      Show systemd service status"
-	@echo "  logs        Follow service logs"
+	@echo "  start       Start all services (or SERVICE=name)"
+	@echo "  stop        Stop all services (or SERVICE=name)"
+	@echo "  restart     Restart all services (or SERVICE=name)"
+	@echo "  status      Show service status (or SERVICE=name)"
+	@echo "  logs        Follow service logs (or SERVICE=name)"
+	@echo ""
+	@echo "  start-ydotoold   Start ydotoold service"
+	@echo "  stop-ydotoold    Stop ydotoold service"
+	@echo "  restart-ydotoold Restart ydotoold service"
+	@echo "  status-ydotoold  Show ydotoold service status"
+	@echo "  logs-ydotoold    Follow ydotoold service logs"
+	@echo "  start-omp        Start OMP MCP service"
+	@echo "  stop-omp         Stop OMP MCP service"
+	@echo "  restart-omp      Restart OMP MCP service"
+	@echo "  status-omp       Show OMP MCP service status"
+	@echo "  logs-omp         Follow OMP MCP service logs"
+	@echo "  start-relay      Start Browser Relay service"
+	@echo "  stop-relay       Stop Browser Relay service"
+	@echo "  restart-relay    Restart Browser Relay service"
+	@echo "  status-relay     Show Browser Relay service status"
+	@echo "  logs-relay       Follow Browser Relay service logs"
 	@echo ""
 	@echo "  test        Run tests"
 	@echo "  typecheck   Run TypeScript typecheck"
 	@echo ""
 	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
+start:
+	@if [ -n "$(SERVICE)" ]; then systemctl start "$(SERVICE)"; else systemctl start $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+
+stop:
+	@if [ -n "$(SERVICE)" ]; then systemctl stop "$(SERVICE)"; else systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME) $(YDOTOOL_SERVICE_NAME); fi
+
+restart:
+	@if [ -n "$(SERVICE)" ]; then systemctl restart "$(SERVICE)"; else systemctl restart $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+
+status:
+	@if [ -n "$(SERVICE)" ]; then systemctl status "$(SERVICE)"; else systemctl status $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+
+logs:
+	@if [ -n "$(SERVICE)" ]; then journalctl -u "$(SERVICE)" -f; else journalctl -u $(YDOTOOL_SERVICE_NAME) -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f; fi
+
+start-ydotoold:
+	systemctl start $(YDOTOOL_SERVICE_NAME)
+
+stop-ydotoold:
+	systemctl stop $(YDOTOOL_SERVICE_NAME)
+
+restart-ydotoold:
+	systemctl restart $(YDOTOOL_SERVICE_NAME)
+
+status-ydotoold:
+	systemctl status $(YDOTOOL_SERVICE_NAME)
+
+logs-ydotoold:
+	journalctl -u $(YDOTOOL_SERVICE_NAME) -f
+
+start-omp:
+	systemctl start $(SERVICE_NAME)
+
+stop-omp:
+	systemctl stop $(SERVICE_NAME)
+
+restart-omp:
+	systemctl restart $(SERVICE_NAME)
+
+status-omp:
+	systemctl status $(SERVICE_NAME)
+
+logs-omp:
+	journalctl -u $(SERVICE_NAME) -f
+
+start-relay:
+	systemctl start $(RELAY_SERVICE_NAME)
+
+stop-relay:
+	systemctl stop $(RELAY_SERVICE_NAME)
+
+restart-relay:
+	systemctl restart $(RELAY_SERVICE_NAME)
+
+status-relay:
+	systemctl status $(RELAY_SERVICE_NAME)
+
+logs-relay:
+	journalctl -u $(RELAY_SERVICE_NAME) -f
+
 
 setup:
 	@test "$$(id -u)" = "0" || (echo "Run 'make setup' as root (use sudo)." && exit 1)
@@ -110,20 +186,6 @@ update:
 	fi
 	@$(MAKE) restart
 
-start:
-	systemctl start $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
-
-stop:
-	systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME) $(YDOTOOL_SERVICE_NAME)
-
-restart:
-	systemctl restart $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
-
-status:
-	systemctl status $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME)
-
-logs:
-	journalctl -u $(YDOTOOL_SERVICE_NAME) -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f
 
 uninstall:
 	@test "$$(id -u)" = "0" || (echo "Run 'make uninstall' as root (use sudo)." && exit 1)
