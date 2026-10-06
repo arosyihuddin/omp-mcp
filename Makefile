@@ -19,7 +19,7 @@ BUN := $(SERVICE_HOME)/.bun/bin/bun
 endif
 
 
-.PHONY: help setup install update uninstall purge start stop restart status logs start-ydotoold stop-ydotoold restart-ydotoold status-ydotoold logs-ydotoold start-omp stop-omp restart-omp status-omp logs-omp start-relay stop-relay restart-relay status-relay logs-relay test typecheck release
+.PHONY: help setup install update uninstall purge start stop restart status logs ydotoold omp relay test typecheck release
 
 help:
 	@echo "OMP MCP - available targets"
@@ -30,91 +30,43 @@ help:
 	@echo "  uninstall   Remove the services and application (preserve data)"
 	@echo "  purge       Uninstall and remove all service data/workspaces"
 	@echo ""
-	@echo "  start       Start all services (or SERVICE=name)"
-	@echo "  stop        Stop all services (or SERVICE=name)"
-	@echo "  restart     Restart all services (or SERVICE=name)"
-	@echo "  status      Show service status (or SERVICE=name)"
-	@echo "  logs        Follow service logs (or SERVICE=name)"
+	@echo "  start [service]   Start all services, or one: ydotoold|omp|relay"
+	@echo "  stop [service]    Stop all services, or one: ydotoold|omp|relay"
+	@echo "  restart [service] Restart all services, or one: ydotoold|omp|relay"
+	@echo "  status [service]  Show all status, or one: ydotoold|omp|relay"
+	@echo "  logs [service]    Follow all logs, or one: ydotoold|omp|relay"
 	@echo ""
-	@echo "  start-ydotoold   Start ydotoold service"
-	@echo "  stop-ydotoold    Stop ydotoold service"
-	@echo "  restart-ydotoold Restart ydotoold service"
-	@echo "  status-ydotoold  Show ydotoold service status"
-	@echo "  logs-ydotoold    Follow ydotoold service logs"
-	@echo "  start-omp        Start OMP MCP service"
-	@echo "  stop-omp         Stop OMP MCP service"
-	@echo "  restart-omp      Restart OMP MCP service"
-	@echo "  status-omp       Show OMP MCP service status"
-	@echo "  logs-omp         Follow OMP MCP service logs"
-	@echo "  start-relay      Start Browser Relay service"
-	@echo "  stop-relay       Stop Browser Relay service"
-	@echo "  restart-relay    Restart Browser Relay service"
-	@echo "  status-relay     Show Browser Relay service status"
-	@echo "  logs-relay       Follow Browser Relay service logs"
+	@echo "  ydotoold        ydotoold service name"
+	@echo "  omp             OMP MCP service name"
+	@echo "  relay           Browser Relay service name"
 	@echo ""
 	@echo "  test        Run tests"
 	@echo "  typecheck   Run TypeScript typecheck"
 	@echo ""
 	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
 start:
-	@if [ -n "$(SERVICE)" ]; then systemctl start "$(SERVICE)"; else systemctl start $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then systemctl start $(YDOTOOL_SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then systemctl start $(SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then systemctl start $(RELAY_SERVICE_NAME); else systemctl start $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
 
 stop:
-	@if [ -n "$(SERVICE)" ]; then systemctl stop "$(SERVICE)"; else systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME) $(YDOTOOL_SERVICE_NAME); fi
+	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then systemctl stop $(YDOTOOL_SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then systemctl stop $(SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then systemctl stop $(RELAY_SERVICE_NAME); else systemctl stop $(RELAY_SERVICE_NAME) $(SERVICE_NAME) $(YDOTOOL_SERVICE_NAME); fi
 
 restart:
-	@if [ -n "$(SERVICE)" ]; then systemctl restart "$(SERVICE)"; else systemctl restart $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then systemctl restart $(YDOTOOL_SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then systemctl restart $(SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then systemctl restart $(RELAY_SERVICE_NAME); else systemctl restart $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
 
 status:
-	@if [ -n "$(SERVICE)" ]; then systemctl status "$(SERVICE)"; else systemctl status $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
+	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then systemctl status $(YDOTOOL_SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then systemctl status $(SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then systemctl status $(RELAY_SERVICE_NAME); else systemctl status $(YDOTOOL_SERVICE_NAME) $(SERVICE_NAME) $(RELAY_SERVICE_NAME); fi
 
 logs:
-	@if [ -n "$(SERVICE)" ]; then journalctl -u "$(SERVICE)" -f; else journalctl -u $(YDOTOOL_SERVICE_NAME) -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f; fi
+	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then journalctl -u $(YDOTOOL_SERVICE_NAME) -f; elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then journalctl -u $(SERVICE_NAME) -f; elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then journalctl -u $(RELAY_SERVICE_NAME) -f; else journalctl -u $(YDOTOOL_SERVICE_NAME) -u $(SERVICE_NAME) -u $(RELAY_SERVICE_NAME) -f; fi
 
-start-ydotoold:
-	systemctl start $(YDOTOOL_SERVICE_NAME)
+ydotoold:
+	@:
 
-stop-ydotoold:
-	systemctl stop $(YDOTOOL_SERVICE_NAME)
+omp:
+	@:
 
-restart-ydotoold:
-	systemctl restart $(YDOTOOL_SERVICE_NAME)
-
-status-ydotoold:
-	systemctl status $(YDOTOOL_SERVICE_NAME)
-
-logs-ydotoold:
-	journalctl -u $(YDOTOOL_SERVICE_NAME) -f
-
-start-omp:
-	systemctl start $(SERVICE_NAME)
-
-stop-omp:
-	systemctl stop $(SERVICE_NAME)
-
-restart-omp:
-	systemctl restart $(SERVICE_NAME)
-
-status-omp:
-	systemctl status $(SERVICE_NAME)
-
-logs-omp:
-	journalctl -u $(SERVICE_NAME) -f
-
-start-relay:
-	systemctl start $(RELAY_SERVICE_NAME)
-
-stop-relay:
-	systemctl stop $(RELAY_SERVICE_NAME)
-
-restart-relay:
-	systemctl restart $(RELAY_SERVICE_NAME)
-
-status-relay:
-	systemctl status $(RELAY_SERVICE_NAME)
-
-logs-relay:
-	journalctl -u $(RELAY_SERVICE_NAME) -f
+relay:
+	@:
 
 
 setup:
