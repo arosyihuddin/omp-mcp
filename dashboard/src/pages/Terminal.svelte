@@ -242,7 +242,6 @@ function toggleFullscreen() {
 
     return () => {
       observer.disconnect();
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   });
 
