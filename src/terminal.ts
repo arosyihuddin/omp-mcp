@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { resolve, relative, sep } from "node:path";
-import { config } from "./lib/config";
 
 export type TerminalStatus = "running" | "exited";
 
@@ -41,20 +40,31 @@ function safeWrite(terminal: Bun.Terminal, data: string) {
   } catch {}
 }
 
+function stripLeadingWhitespaceLine(text: string) {
+  return text.replace(/^[ \t]+\r?\n/, "");
+}
 
 class TerminalManager {
   private terminals = new Map<string, TerminalRecord>();
 
   list(): TerminalInfo[] {
     return [...this.terminals.values()]
-      .map(({ process: _process, clients: _clients, output: _output, ...info }) => info)
+      .map(
+        ({ process: _process, clients: _clients, output: _output, ...info }) =>
+          info,
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   get(id: string) {
     const terminal = this.terminals.get(id);
     if (!terminal) return undefined;
-    const { process: _process, clients: _clients, output: _output, ...info } = terminal;
+    const {
+      process: _process,
+      clients: _clients,
+      output: _output,
+      ...info
+    } = terminal;
     return info;
   }
 
@@ -64,29 +74,47 @@ class TerminalManager {
     const now = new Date().toISOString();
     const decoder = new TextDecoder();
     let record: TerminalRecord | undefined;
+    let startupLineBuffer: string | null = "";
     const env = processEnv();
     const shell = env.SHELL?.trim() || "/bin/sh";
-    const process = Bun.spawn(
-      [shell, "-i"],
-      {
-        cwd: target,
-        env: {
-          ...env,
-          TERM: "xterm-256color",
-          COLORTERM: "truecolor",
-        },
-        terminal: {
-          cols: 120,
-          rows: 30,
-          data: (_pty, data) => {
-            const text = decoder.decode(data, { stream: true });
-            if (record && text) this.broadcast(record, text);
-          },
+    const process = Bun.spawn([shell, "-i"], {
+      cwd: target,
+      env: {
+        ...env,
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+      },
+      terminal: {
+        cols: 120,
+        rows: 30,
+        data: (_pty, data) => {
+          const text = decoder.decode(data, { stream: true });
+          if (!record || !text) return;
 
+          if (startupLineBuffer !== null) {
+            startupLineBuffer += text;
+            const newlineMatch = startupLineBuffer.match(/\r?\n/);
+            if (!newlineMatch || newlineMatch.index === undefined) return;
+
+            const newlineEnd = newlineMatch.index + newlineMatch[0].length;
+            const firstLine = startupLineBuffer.slice(0, newlineMatch.index);
+            const remainder = startupLineBuffer.slice(newlineEnd);
+
+            if (/^[ \t]+$/.test(firstLine)) {
+              startupLineBuffer = null;
+              if (remainder) this.broadcast(record, remainder);
+            } else {
+              const output = startupLineBuffer;
+              startupLineBuffer = null;
+              this.broadcast(record, output);
+            }
+            return;
+          }
+
+          this.broadcast(record, text);
         },
       },
-    );
-
+    });
 
     const terminal: TerminalRecord = {
       id,
@@ -115,11 +143,13 @@ class TerminalManager {
       return;
     }
     terminal.clients.add(ws);
-    ws.send(JSON.stringify({
-      type: "snapshot",
-      terminal: this.get(id),
-      output: terminal.output,
-    }));
+    ws.send(
+      JSON.stringify({
+        type: "snapshot",
+        terminal: this.get(id),
+        output: stripLeadingWhitespaceLine(terminal.output),
+      }),
+    );
   }
 
   detach(ws: Bun.ServerWebSocket<{ terminalId: string }>) {
@@ -134,9 +164,15 @@ class TerminalManager {
     return true;
   }
 
-
   resize(id: string, cols: number, rows: number) {
-    if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 20 || cols > 300 || rows < 5 || rows > 100) {
+    if (
+      !Number.isInteger(cols) ||
+      !Number.isInteger(rows) ||
+      cols < 20 ||
+      cols > 300 ||
+      rows < 5 ||
+      rows > 100
+    ) {
       return false;
     }
     const terminal = this.terminals.get(id);
@@ -149,7 +185,6 @@ class TerminalManager {
     return true;
   }
 
-
   dispose(id: string) {
     const terminal = this.terminals.get(id);
     if (!terminal) return false;
@@ -161,13 +196,13 @@ class TerminalManager {
     } catch {}
     this.terminals.delete(id);
     for (const client of terminal.clients) {
-      try { client.close(1000, "Terminal disposed"); } catch {}
+      try {
+        client.close(1000, "Terminal disposed");
+      } catch {}
     }
     terminal.clients.clear();
     return true;
   }
-
-
 
   private async watchExit(terminal: TerminalRecord) {
     const exitCode = await terminal.process.exited;
@@ -191,9 +226,16 @@ class TerminalManager {
     }
   }
 
-  private broadcastJson(terminal: TerminalRecord, message: Record<string, unknown>) {
+  private broadcastJson(
+    terminal: TerminalRecord,
+    message: Record<string, unknown>,
+  ) {
     for (const client of terminal.clients) {
-      try { client.send(JSON.stringify(message)); } catch { terminal.clients.delete(client); }
+      try {
+        client.send(JSON.stringify(message));
+      } catch {
+        terminal.clients.delete(client);
+      }
     }
   }
 }

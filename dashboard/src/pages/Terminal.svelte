@@ -175,9 +175,6 @@
   function fitTerminal() {
     if (!fit || !term) return;
     fit.fit();
-    if (term.rows > 1) {
-      term.resize(term.cols, term.rows - 1);
-    }
   }
 
   function resize() {
@@ -185,31 +182,17 @@
     sendResize();
   }
 
-  async function toggleFullscreen() {
-    if (!terminalContainer) return;
+function toggleFullscreen() {
+  isFullscreen = !isFullscreen;
+  requestAnimationFrame(() => {
+    fitTerminal();
+    sendResize();
+    term?.focus();
+  });
+}
 
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await terminalContainer.requestFullscreen();
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Unable to toggle fullscreen';
-    }
-  }
-
-  function handleFullscreenChange() {
-    isFullscreen = document.fullscreenElement !== null;
-    requestAnimationFrame(() => {
-      fitTerminal();
-      sendResize();
-      term?.focus();
-    });
-  }
 
   onMount(() => {
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
     const storedSessionsOpen = localStorage.getItem(SESSIONS_OPEN_KEY);
     if (storedSessionsOpen !== null) {
       sessionsOpen = storedSessionsOpen === 'true';
@@ -240,10 +223,13 @@
     term.onData(sendInput);
     term.onBinary(sendInput);
     term.attachCustomKeyEventHandler((event) => {
-      event.stopPropagation();
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopPropagation();
+        sendInput('\x1b');
+        return false;
       }
+      event.stopPropagation();
       return true;
     });
 
@@ -266,15 +252,12 @@
   }
 
   onDestroy(() => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-    }
     socket?.close();
     term?.dispose();
   });
 </script>
 
-<div bind:this={terminalContainer} data-terminal-container class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-black/[.10] bg-[#0b0b0c] shadow-[0_18px_50px_rgba(0,0,0,.10)] dark:border-white/[.08] fullscreen:bg-[#0b0b0c]">
+<div bind:this={terminalContainer} data-terminal-container class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-black/[.10] bg-[#0b0b0c] shadow-[0_18px_50px_rgba(0,0,0,.10)] dark:border-white/[.08] {isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}">
   <header class="flex h-14 shrink-0 items-center border-b border-white/[.07] px-4">
     <div class="flex min-w-0 items-center gap-3">
       <div class="flex h-7 w-7 items-center justify-center rounded-md bg-white/[.07] text-white/[.75]">
