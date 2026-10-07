@@ -12,6 +12,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.1",
     "@oh-my-pi/pi-coding-agent": "18.4.10",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.3.0",
     "pino": "^10.3.1"
   },
   "devDependencies": {

@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Activity, Folder, GitBranch, LayoutDashboard, Moon, PanelLeft, RefreshCw, ShieldCheck, Sun, Terminal, Wrench } from '@lucide/svelte';
+  import { Activity, Folder, GitBranch, LayoutDashboard, Moon, PanelLeft, RefreshCw, ShieldCheck, Sun, Terminal as TerminalIcon, Wrench } from '@lucide/svelte';
   import Overview from './pages/Overview.svelte';
   import Tools from './pages/Tools.svelte';
   import Approvals from './pages/Approvals.svelte';
   import Sessions from './pages/Sessions.svelte';
   import Workspace from './pages/Workspace.svelte';
+  import TerminalPage from './pages/Terminal.svelte';
   import Placeholder from './pages/Placeholder.svelte';
   import type { HostTelemetry, Session, Tool } from './lib/types';
   const nav = [
@@ -14,7 +15,7 @@
     ['tools', 'Tools', Wrench],
     ['approvals', 'Approvals', ShieldCheck],
     ['sessions', 'OMP Sessions', Activity],
-    ['logs', 'Logs', Terminal],
+    ['terminal', 'Terminal', TerminalIcon],
     ['git', 'Git', GitBranch]
   ] as const;
 
@@ -24,7 +25,7 @@
     '/tools': 'tools',
     '/approvals': 'approvals',
     '/sessions': 'sessions',
-    '/logs': 'logs',
+    '/terminal': 'terminal',
     '/git': 'git'
   };
 
@@ -41,19 +42,6 @@
   let workspaceLoading = false;
   let workspaceError = '';
   let approvalCandidates = 0;
-  let approvalRequestError = '';
-
-  async function loadApprovalCount() {
-    try {
-      const response = await fetch('/api/approvals', { cache: 'no-store' });
-      if (!response.ok) return;
-      const data = await response.json() as { approvals?: { status?: string }[] };
-      approvalCandidates = (data.approvals ?? []).filter((approval) => approval.status === 'pending').length;
-      approvalRequestError = '';
-    } catch {
-      approvalRequestError = 'Unable to load approval count';
-    }
-  }
 
   async function loadWorkspace(path = '.') {
     workspaceLoading = true;
@@ -117,47 +105,85 @@
       loading = false;
     }
   }
+  function applyApprovalEvent(event: MessageEvent) {
+    try {
+      const data = JSON.parse(event.data) as { approvals?: { status?: string }[]; status?: string };
+      if (event.type === 'dashboard.snapshot') {
+        approvalCandidates = (data.approvals ?? []).filter((approval) => approval.status === 'pending').length;
+      } else if (event.type === 'approval.created') {
+        approvalCandidates += 1;
+      } else if (event.type === 'approval.updated' && data.status !== 'pending') {
+        approvalCandidates = Math.max(0, approvalCandidates - 1);
+      } else if (event.type === 'approval.cleared') {
+        approvalCandidates = 0;
+      }
+    } catch {}
+  }
+  function applySessionEvent(event: MessageEvent) {
+    try {
+      const data = JSON.parse(event.data) as Session | { sessionId?: string };
+      if (event.type === 'dashboard.snapshot') {
+        const snapshot = data as unknown as { sessions?: Session[] };
+        sessions = snapshot.sessions ?? sessions;
+      } else if (event.type === 'session.created' || event.type === 'session.updated') {
+        const session = data as Session;
+        const index = sessions.findIndex((item) => item.sessionId === session.sessionId);
+        sessions = index >= 0
+          ? sessions.map((item, i) => i === index ? session : item)
+          : [session, ...sessions];
+      } else if (event.type === 'session.removed' && data.sessionId) {
+        sessions = sessions.filter((item) => item.sessionId !== data.sessionId);
+      }
+    } catch {}
+  }
 
-  onMount(() => {
-    const savedTheme = localStorage.getItem('omp-theme');
-    setTheme(savedTheme === 'light' ? 'light' : 'dark');
-    navigate(routes[window.location.pathname] ?? 'overview', true);
-    sidebarCollapsed = localStorage.getItem('omp-sidebar-collapsed') === 'true';
-    refresh();
-    loadApprovalCount();
 
-    const onPopState = () => {
-      active = routes[window.location.pathname] ?? 'overview';
-    };
-    window.addEventListener('popstate', onPopState);
-    const timer = window.setInterval(refresh, 10000);
-    const approvalTimer = window.setInterval(loadApprovalCount, 1000);
-    return () => {
-      window.clearInterval(timer);
-      window.clearInterval(approvalTimer);
-      window.removeEventListener('popstate', onPopState);
-    };
-  });
+
+ onMount(() => {
+   const savedTheme = localStorage.getItem('omp-theme');
+   setTheme(savedTheme === 'light' ? 'light' : 'dark');
+   navigate(routes[window.location.pathname] ?? 'overview', true);
+   sidebarCollapsed = localStorage.getItem('omp-sidebar-collapsed') === 'true';
+   refresh();
+
+   const onPopState = () => {
+     active = routes[window.location.pathname] ?? 'overview';
+   };
+   window.addEventListener('popstate', onPopState);
+   const events = new EventSource('/api/events');
+   events.addEventListener('dashboard.snapshot', applyApprovalEvent);
+  events.addEventListener('dashboard.snapshot', applySessionEvent);
+   events.addEventListener('approval.created', applyApprovalEvent);
+   events.addEventListener('approval.updated', applyApprovalEvent);
+   events.addEventListener('approval.cleared', applyApprovalEvent);
+  events.addEventListener('session.created', applySessionEvent);
+  events.addEventListener('session.updated', applySessionEvent);
+  events.addEventListener('session.removed', applySessionEvent);
+   return () => {
+    events.close();
+     window.removeEventListener('popstate', onPopState);
+   };
+ });
 </script>
 
 <div class="h-screen overflow-hidden bg-[#e1dcc9] font-sans text-[#1f150c] selection:bg-[#412d15]/[.20] dark:bg-black dark:text-[#e1dcc9] dark:selection:bg-[#412d15]">
   <div class="flex h-screen overflow-hidden bg-[#e1dcc9] dark:bg-black">
     <aside class="relative flex h-screen shrink-0 flex-col bg-[#e1dcc9] transition-[width] duration-200 ease-out dark:bg-black {sidebarCollapsed ? 'w-16' : 'w-[248px]'}">
-      <div class="flex h-20 shrink-0 items-center justify-between px-4">
-        <div class="flex min-w-0 items-center gap-3 transition-opacity duration-150 {sidebarCollapsed ? 'invisible opacity-0' : ''}">
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.08] dark:border-[#e1dcc9]/[.10] dark:bg-[#09090b]">
-            <svg viewBox="0 0 64 64" class="h-full w-full" aria-hidden="true">
+      <div class="group relative flex h-20 shrink-0 items-center justify-between px-4">
+        <div class="flex min-w-0 items-center gap-3 transition-opacity duration-150 {sidebarCollapsed ? 'mx-auto w-8' : ''}">
+          <div class="group/logo relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.08] dark:border-[#e1dcc9]/[.10] dark:bg-[#09090b]">
+            <svg viewBox="0 0 64 64" class="h-full w-full transition-opacity duration-150 {sidebarCollapsed ? 'group-hover:opacity-0' : ''}" aria-hidden="true">
               <rect width="64" height="64" rx="16" fill="#412d15" />
               <path d="M18 20h28v8H27v8h15v8H27v8h19v-8h-11v-8h11V20H18Z" fill="#e1dcc9" />
               <circle cx="49" cy="15" r="4" fill="#e1dcc9" />
             </svg>
           </div>
-          <div class="min-w-0">
+          <div class="min-w-0 {sidebarCollapsed ? 'hidden' : ''}">
             <div class="truncate text-[14px] font-semibold tracking-tight">OMP Control Plane</div>
             <div class="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-[#412d15]/[.50] dark:text-[#e1dcc9]/[.36]">Local management</div>
           </div>
         </div>
-        <button class="flex h-7 w-7 items-center justify-center rounded-md text-[#412d15]/[.70] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.58] dark:hover:bg-[#412d15]/[.35] dark:hover:text-[#e1dcc9] {sidebarCollapsed ? 'mx-auto' : ''}" type="button" on:click={toggleSidebar} aria-label={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'} title={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'}>
+        <button class="flex h-4 w-4 items-center justify-center rounded-md text-[#412d15]/[.70] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.58] dark:hover:bg-[#412d15]/[.35] dark:hover:text-[#e1dcc9] {sidebarCollapsed ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100' : ''}" type="button" on:click={toggleSidebar} aria-label={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'} title={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'}>
           <PanelLeft size={16} strokeWidth={1.8} />
         </button>
       </div>
@@ -193,8 +219,9 @@
       </div>
     </aside>
 
-    <main class="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-      <header class="sticky top-0 z-10 flex h-20 items-center justify-between bg-[#e1dcc9]/[.95] px-5 backdrop-blur-xl dark:bg-black/90">
+    <main class="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+
+      <header class="flex h-20 shrink-0 items-center justify-between bg-[#e1dcc9]/[.95] px-5 backdrop-blur-xl dark:bg-black/90">
         <div>
           <h1 class="text-[20px] font-semibold tracking-tight">{pageTitle}</h1>
           <p class="mt-1 text-[11px] text-[#412d15]/[.60] dark:text-[#e1dcc9]/[.36]">Operate and observe OMP-MCP without changing the OMP agent runtime.</p>
@@ -207,8 +234,9 @@
         </div>
       </header>
 
-      <div class="min-h-0 flex-1 rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.10] dark:bg-black">
-        <div class="w-full p-5">
+      <div class="min-h-0 flex-1 overflow-hidden rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.10] dark:bg-black">
+        <div class="h-full min-h-0 w-full {active === 'terminal' ? 'overflow-hidden p-5' : 'overflow-y-auto p-5'}">
+
           {#if active === 'overview'}
             <Overview {tools} {sessions} {host} {connected} {navigate} {loading} />
           {:else if active === 'workspace'}
@@ -219,8 +247,12 @@
             <Approvals />
           {:else if active === 'sessions'}
             <Sessions {sessions} {loading} />
+          {:else if active === 'terminal'}
+            <div class="h-full min-h-0">
+              <TerminalPage />
+            </div>
           {:else}
-            <Placeholder view={active as 'workspace' | 'logs' | 'git'} />
+            <Placeholder view={active as 'git'} />
           {/if}
         </div>
       </div>

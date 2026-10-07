@@ -5,7 +5,7 @@
   export let tagTone: 'default' | 'amber' = 'default';
 </script>
 
-<section class="relative h-full overflow-hidden rounded-xl border border-[#1f150c]/[.15] bg-[#e1dcc9] shadow-[0_1px_2px_rgba(31,21,12,.08),0_8px_24px_rgba(31,21,12,.05)] dark:border-[#e1dcc9]/[.10] dark:bg-[#1f150c] dark:shadow-[0_1px_2px_rgba(0,0,0,.28),0_8px_30px_rgba(0,0,0,.10)]">
+<section class="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#1f150c]/[.15] bg-[#e1dcc9] shadow-[0_1px_2px_rgba(31,21,12,.08),0_8px_24px_rgba(31,21,12,.05)] dark:border-[#e1dcc9]/[.10] dark:bg-[#1f150c] dark:shadow-[0_1px_2px_rgba(0,0,0,.28),0_8px_30px_rgba(0,0,0,.10)]">
   <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#412d15]/[.025] via-transparent to-[#412d15]/[.035] dark:from-[#e1dcc9]/[.025] dark:to-[#412d15]/[.08]"></div>
   <div class="relative z-[1] flex items-center justify-between border-b border-[#1f150c]/[.10] px-5 py-4 dark:border-[#e1dcc9]/[.10]">
     <div>
@@ -24,5 +24,7 @@
       <slot name="actions" />
     </div>
   </div>
-  <slot />
+  <div class="relative z-[1] min-h-0 flex-1 overflow-y-auto">
+    <slot />
+  </div>
 </section>

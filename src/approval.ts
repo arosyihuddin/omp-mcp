@@ -1,3 +1,5 @@
+import { emitDashboardEvent } from "./dashboard-events";
+
 export type ApprovalRisk = "medium" | "high";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "cancelled";
 
@@ -41,8 +43,10 @@ function finish(id: string, status: ApprovalStatus, approved: boolean) {
   pending.status = status;
   pending.updatedAt = now();
   pending.resolve({ approved, status });
+  emitDashboardEvent({ type: "approval.updated", data: publicApproval(pending) });
   return true;
 }
+
 
 function trustKey(tool: string, sessionId?: string) {
   return sessionId ? `${sessionId}:${tool}` : undefined;
@@ -57,7 +61,9 @@ export function clearApprovalHistory() {
   for (const [id, approval] of approvals) {
     if (approval.status !== "pending") approvals.delete(id);
   }
+  emitDashboardEvent({ type: "approval.cleared" });
 }
+
 
 export function listApprovals(): ApprovalRequest[] {
   return [...approvals.values()]
@@ -126,6 +132,7 @@ export async function requestApproval(options: {
       resolve,
     };
     approvals.set(id, pending);
+    emitDashboardEvent({ type: "approval.created", data: publicApproval(pending) });
 
     const timer = setTimeout(() => {
       finish(id, "expired", false);

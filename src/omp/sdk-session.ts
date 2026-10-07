@@ -10,7 +10,9 @@ import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
 import { DEFAULT_RELAY_URL } from "@oh-my-pi/pi-coding-agent/collab/protocol";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import { config } from "../lib/config";
+import { emitDashboardEvent } from "../dashboard-events";
 import type { OmpSession } from "./types";
+
 
 function now() {
   return new Date().toISOString();
@@ -98,9 +100,15 @@ export class OmpSdkSessionManager {
 
     this.sessions.set(sessionId, session);
     this.agents.set(sessionId, agent);
+    emitDashboardEvent({ type: "session.created", data: session });
 
     const collab = await this.startCollab(sessionId, agent);
-    if (collab) session.collab = collab;
+    if (collab) {
+      session.collab = collab;
+      emitDashboardEvent({ type: "session.updated", data: session });
+    }
+
+
 
     const unsubscribe = agent.subscribe((event) => {
       session.updatedAt = now();
@@ -142,6 +150,8 @@ export class OmpSdkSessionManager {
           session.status = "completed";
         }
       }
+      emitDashboardEvent({ type: "session.updated", data: session });
+
     });
 
     this.unsubscribers.set(sessionId, unsubscribe);
@@ -156,11 +166,15 @@ export class OmpSdkSessionManager {
           session.status = "completed";
         }
         session.updatedAt = now();
+        emitDashboardEvent({ type: "session.updated", data: session });
+
       })
       .catch((error) => {
         session.status = "failed";
         session.error = error instanceof Error ? error.message : String(error);
         session.updatedAt = now();
+        emitDashboardEvent({ type: "session.updated", data: session });
+
       });
 
     return session;
@@ -180,6 +194,8 @@ export class OmpSdkSessionManager {
     session.error = undefined;
     session.output = [];
     session.updatedAt = now();
+    emitDashboardEvent({ type: "session.updated", data: session });
+
 
     void agent.prompt(task)
       .then(() => {
@@ -214,7 +230,9 @@ export class OmpSdkSessionManager {
 
     session.status = "interrupted";
     session.updatedAt = now();
+    emitDashboardEvent({ type: "session.updated", data: session });
     return true;
+
   }
 
   async dispose(sessionId?: string): Promise<void> {
@@ -235,6 +253,7 @@ export class OmpSdkSessionManager {
         if (agent) await agent.dispose();
 
         this.sessions.delete(id);
+        emitDashboardEvent({ type: "session.removed", data: { sessionId: id } });
       }),
     );
   }

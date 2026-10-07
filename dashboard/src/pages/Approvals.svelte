@@ -1,5 +1,6 @@
 <script lang="ts">
   import { CircleCheck, CircleX, Clock3, ShieldAlert, TimerOff, Ban, FileClock, Trash, ArrowLeft, ChevronDown } from '@lucide/svelte';
+  import { onMount } from 'svelte';
   import PagePanel from '../lib/components/PagePanel.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
 
@@ -108,11 +109,18 @@
   $: pending = approvals.filter((approval) => approval.status === 'pending');
   $: history = approvals.filter((approval) => approval.status !== 'pending');
 
-  loadApprovals();
-  window.setInterval(loadApprovals, 1000);
+  onMount(() => {
+    loadApprovals();
+    const events = new EventSource('/api/events');
+    const onApprovalEvent = () => loadApprovals();
+    events.addEventListener('approval.created', onApprovalEvent);
+    events.addEventListener('approval.updated', onApprovalEvent);
+    events.addEventListener('approval.cleared', onApprovalEvent);
+    return () => events.close();
+  });
 </script>
 
-<div class="h-[calc(100vh-120px)]">
+<div class="h-full min-h-0">
 <PagePanel title="Approvals" description="Review medium and high-risk operations before they execute." tag={pending.length ? pending.length + ' PENDING' : 'CLEAR'} tagTone={pending.length ? 'amber' : 'default'}>
   <div slot="title-prefix" class:invisible={!showHistory} class:opacity-0={!showHistory}>
     <button class="rounded-lg p-1.5 -ml-1.5 text-[#1f150c]/[.52] transition hover:bg-[#1f150c]/[.06] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.48] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]" title="Back to pending approvals" aria-label="Back to pending approvals" tabindex={showHistory ? 0 : -1} onclick={() => showHistory = false}>

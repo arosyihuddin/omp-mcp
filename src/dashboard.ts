@@ -1,3 +1,5 @@
+import { subscribeDashboardEvents } from "./dashboard-events";
+
 import { readdir, stat } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
 import { config } from "./lib/config";
@@ -6,6 +8,7 @@ import { approveApproval, clearApprovalHistory, denyApproval, listApprovals } fr
 import { sdkSessionManager } from "./omp/sdk-session";
 
 import { getDashboardTools } from "./dashboard-tools";
+import { terminalManager } from "./terminal";
 
 const dashboardRoot = new URL("../dashboard/dist/", import.meta.url);
 
@@ -56,16 +59,84 @@ async function serveAsset(pathname: string): Promise<Response> {
 export async function handleDashboardRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
+  if (url.pathname === "/api/events" && request.method === "GET") {
+    const encoder = new TextEncoder();
+    let cleanup = () => {};
+    const stream = new ReadableStream({
+      start(controller) {
+        const send = (event: string, data: unknown) => {
+          try {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          } catch {
+            cleanup();
+          }
+        };
+
+        send("dashboard.snapshot", {
+          approvals: listApprovals(),
+          sessions: sdkSessionManager.list(),
+        });
+
+        const unsubscribe = subscribeDashboardEvents((event) => {
+          send(event.type, event.data);
+        });
+        const heartbeat = setInterval(() => send("ping", { time: new Date().toISOString() }), 20_000);
+        const onAbort = () => cleanup();
+        cleanup = () => {
+          unsubscribe();
+          clearInterval(heartbeat);
+          request.signal.removeEventListener("abort", onAbort);
+          try {
+            controller.close();
+          } catch {}
+        };
+        request.signal.addEventListener("abort", onAbort, { once: true });
+      },
+      cancel() {
+        cleanup();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "connection": "keep-alive",
+        "x-accel-buffering": "no",
+      },
+    });
+  }
+  if (url.pathname === "/api/terminals" && request.method === "GET") {
+    return Response.json({ terminals: terminalManager.list() }, { headers: { "cache-control": "no-store" } });
+  }
+
+  if (url.pathname === "/api/terminals" && request.method === "POST") {
+    try {
+      const body = await request.json().catch(() => ({})) as { cwd?: string; title?: string };
+      return Response.json({ terminal: terminalManager.create(body.cwd, body.title) }, { status: 201 });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to create terminal" }, { status: 400 });
+    }
+  }
+
+  const terminalMatch = url.pathname.match(/^\/api\/terminals\/([^/]+)$/);
+  if (terminalMatch && request.method === "DELETE") {
+    return terminalManager.dispose(decodeURIComponent(terminalMatch[1]))
+      ? Response.json({ disposed: true })
+      : Response.json({ error: "Unknown terminal" }, { status: 404 });
+  }
+
+
   if (url.pathname === "/api/dashboard") {
     const [system, hardware, capabilities, tools] = await Promise.all([
       getSystemInfo(), getHardwareInfo(), getCapabilities(), getDashboardTools()
     ]);
     return Response.json({ host: { system, hardware, capabilities }, tools, sessions: sdkSessionManager.list() });
   }
-
   if (url.pathname === "/api/approvals") {
     return Response.json({ approvals: listApprovals() }, { headers: { "cache-control": "no-store" } });
   }
+
   if (url.pathname === "/api/approvals/clear" && request.method === "POST") {
     clearApprovalHistory();
     return Response.json({ approvals: listApprovals() }, { headers: { "cache-control": "no-store" } });
@@ -80,6 +151,26 @@ export async function handleDashboardRequest(request: Request): Promise<Response
     const changed = action === "approve-session" ? approveApproval(id, true) : action === "approve" ? approveApproval(id) : denyApproval(id);
     if (!changed) return Response.json({ error: "Approval not found or no longer pending" }, { status: 404 });
     return Response.json({ approval: listApprovals().find((item) => item.id === id) }, { headers: { "cache-control": "no-store" } });
+  }
+  if (url.pathname.startsWith("/api/sessions/") && request.method === "POST") {
+    const parts = url.pathname.split("/");
+    const sessionId = decodeURIComponent(parts[3] ?? "");
+    const action = parts[4];
+    if (!sessionId || !["interrupt", "dispose"].includes(action)) {
+      return Response.json({ error: "Invalid session action" }, { status: 400 });
+    }
+    try {
+      if (action === "interrupt") {
+        const ok = await sdkSessionManager.interrupt(sessionId);
+        if (!ok) return Response.json({ error: "No running session" }, { status: 404 });
+        return Response.json({ session: sdkSessionManager.get(sessionId) }, { headers: { "cache-control": "no-store" } });
+      }
+      if (!sdkSessionManager.get(sessionId)) return Response.json({ error: "Unknown session" }, { status: 404 });
+      await sdkSessionManager.dispose(sessionId);
+      return Response.json({ session_id: sessionId, disposed: true }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Session action failed" }, { status: 500 });
+    }
   }
   if (url.pathname === "/api/workspace") {
     try {

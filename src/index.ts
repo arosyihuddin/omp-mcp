@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
 import { createServer } from "./mcp/server";
 import { handleMcpHttpRequest, closeMcpHttpSessions } from "./http";
 import { handleDashboardRequest } from "./dashboard";
+import { terminalManager } from "./terminal";
 import { config } from "./lib/config";
 
 let server: Awaited<ReturnType<typeof createServer>> | undefined;
@@ -32,9 +33,39 @@ if (config.transport === "http" || config.transport === "both") {
         return handleMcpHttpRequest(request);
       }
 
-      return handleDashboardRequest(request);
+      if (url.pathname === "/api/terminal/socket" && request.method === "GET") {
+        const terminalId = url.searchParams.get("id");
+        if (!terminalId || !terminalManager.get(terminalId)) {
+          return new Response("Unknown terminal", { status: 404 });
+        }
+        if (httpServer?.upgrade(request, { data: { terminalId } })) return;
+        return new Response("WebSocket upgrade failed", { status: 400 });
+      }
 
+      return handleDashboardRequest(request);
     },
+    websocket: {
+      open(ws) {
+        const terminalId = (ws.data as { terminalId: string }).terminalId;
+        terminalManager.attach(ws as Bun.ServerWebSocket<{ terminalId: string }>, terminalId);
+      },
+      message(ws, message) {
+        try {
+          const payload = JSON.parse(typeof message === "string" ? message : new TextDecoder().decode(message));
+          const terminalId = (ws.data as { terminalId: string }).terminalId;
+          if (payload.type === "input" && typeof payload.data === "string") {
+            terminalManager.input(terminalId, payload.data);
+          } else if (payload.type === "resize") {
+            terminalManager.resize(terminalId, Number(payload.cols), Number(payload.rows));
+          }
+        } catch {}
+      },
+      close(ws) {
+        terminalManager.detach(ws as Bun.ServerWebSocket<{ terminalId: string }>);
+      },
+      idleTimeout: 0,
+    },
+    idleTimeout: 120,
   });
 
   logger.info(
