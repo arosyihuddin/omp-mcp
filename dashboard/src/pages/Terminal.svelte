@@ -308,9 +308,25 @@
 
       <div class="min-h-0 flex-1 p-4">
         <div
-          bind:this={terminalElement}
-          class="h-full w-full overflow-hidden rounded-lg border border-white/[.055] bg-[#0b0b0c] px-2 py-2"
+            bind:this={terminalElement}
+            class="h-full w-full overflow-hidden rounded-lg border border-white/[.055] bg-[#0b0b0c] px-2 py-2"
         ></div>
+
+        {#if !activeTerminal}
+          <div class="absolute inset-4 flex items-center justify-center rounded-lg border border-dashed border-white/[.08] bg-[#0b0b0c]">
+            <div class="flex max-w-sm flex-col items-center px-6 text-center">
+              <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/[.08] bg-white/[.035] text-white/[.55]">
+                <TerminalIcon size={20} strokeWidth={1.6} />
+              </div>
+              <h3 class="text-sm font-medium text-white/[.82]">No terminal sessions</h3>
+              <p class="mt-1.5 text-[11px] leading-5 text-white/[.35]">Create a terminal session to open an interactive shell in your workspace.</p>
+              <button type="button" class="mt-5 flex h-8 items-center gap-1.5 rounded-md bg-white/[.92] px-3 text-[11px] font-medium text-black transition hover:bg-white" on:click={createTerminal} disabled={creating}>
+                <Plus size={13} strokeWidth={2} />
+                New terminal
+              </button>
+            </div>
+          </div>
+        {/if}
       </div>
 
       {#if error}

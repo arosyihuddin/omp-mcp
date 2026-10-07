@@ -73,6 +73,8 @@ class TerminalManager {
           ...processEnv(),
           TERM: "xterm-256color",
           COLORTERM: "truecolor",
+          PS1: "\\n\\[\\e[38;5;110m\\]\\u@\\h\\[\\e[0m\\] \\w\\[\\e[38;5;242m\\]$(git branch --show-current 2>/dev/null | sed 's/^/ git:/')\\[\\e[0m\\] $ ",
+          PS2: "> ",
         },
         terminal: {
           cols: 120,
