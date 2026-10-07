@@ -7,6 +7,7 @@
   export let host: HostTelemetry = {};
   export let connected = false;
   export let navigate: (view: string) => void;
+  export let loading = true;
   $: approvalCandidates = tools.filter((tool) => tool.risk === 'medium' || tool.risk === 'high').length;
   $: runningSessions = sessions.filter((session) => session.status === 'running').length;
   const levels = ['low','medium','high','isolated'] as const;
@@ -28,6 +29,18 @@
   })();
 </script>
 
+{#if loading}
+  <div class="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2" aria-label="Loading overview" aria-busy="true">
+    {#each Array(4) as _}
+      <div class="h-[118px] animate-pulse rounded-xl border border-[#1f150c]/[.10] bg-[#412d15]/[.05] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.03]"></div>
+    {/each}
+  </div>
+  <div class="mt-6 grid grid-cols-[1.5fr_1fr] gap-4 max-[900px]:grid-cols-1">
+    <div class="h-[250px] animate-pulse rounded-xl border border-[#1f150c]/[.10] bg-[#412d15]/[.05] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.03]"></div>
+    <div class="h-[250px] animate-pulse rounded-xl border border-[#1f150c]/[.10] bg-[#412d15]/[.05] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.03]"></div>
+  </div>
+  <div class="mt-4 h-[180px] animate-pulse rounded-xl border border-[#1f150c]/[.10] bg-[#412d15]/[.05] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.03]"></div>
+{:else}
 <div class="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2">
   {#each [
     ['Registered tools', tools.length, 'Across system capabilities'],
@@ -86,3 +99,4 @@
     <SessionList {sessions} limit={5} emptyText="No OMP sessions are currently registered." />
   </PagePanel>
 </div>
+{/if}

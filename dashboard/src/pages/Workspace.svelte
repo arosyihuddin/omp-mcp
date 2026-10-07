@@ -131,7 +131,15 @@
       {#if error}
         <div class="p-8 text-center text-[11px] text-[#412d15]/[.65] dark:text-[#e1dcc9]/[.50]">{error}</div>
       {:else if loading}
-        <div class="p-8 text-center text-[11px] text-[#412d15]/[.45] dark:text-[#e1dcc9]/[.30]">Loading workspace…</div>
+        <div class="space-y-0" aria-label="Loading workspace" aria-busy="true">
+          {#each Array(8) as _}
+            <div class="grid grid-cols-[1fr_120px_150px] items-center gap-4 px-5 py-3 max-[700px]:grid-cols-[1fr_90px]">
+              <div class="flex min-w-0 items-center gap-3"><div class="h-4 w-4 animate-pulse rounded bg-[#1f150c]/[.07] dark:bg-white/[.06]"></div><div class="h-3 w-40 animate-pulse rounded bg-[#1f150c]/[.07] dark:bg-white/[.06]"></div></div>
+              <div class="h-2.5 w-16 animate-pulse rounded bg-[#1f150c]/[.05] dark:bg-white/[.04] max-[700px]:hidden"></div>
+              <div class="ml-auto h-2.5 w-24 animate-pulse rounded bg-[#1f150c]/[.05] dark:bg-white/[.04] max-[700px]:hidden"></div>
+            </div>
+          {/each}
+        </div>
       {:else}
         <div class="divide-y divide-[#1f150c]/[.08] dark:divide-[#e1dcc9]/[.05]">
           {#each items as item}

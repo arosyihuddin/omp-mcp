@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleCheck, CircleX, Clock3, ShieldAlert, TimerOff, Ban, History, Trash2, ArrowLeft } from '@lucide/svelte';
+  import { CircleCheck, CircleX, Clock3, ShieldAlert, TimerOff, Ban, FileClock, Trash, ArrowLeft, ChevronDown } from '@lucide/svelte';
   import PagePanel from '../lib/components/PagePanel.svelte';
   import EmptyState from '../lib/components/EmptyState.svelte';
 
@@ -22,7 +22,7 @@
   let error = '';
   let showHistory = false;
   let clearingHistory = false;
-
+  let expandedHistoryId = '';
   async function loadApprovals() {
     try {
       const response = await fetch('/api/approvals', { cache: 'no-store' });
@@ -72,6 +72,10 @@
     return Clock3;
   }
 
+  function toggleHistory(id: string) {
+    expandedHistoryId = expandedHistoryId === id ? '' : id;
+  }
+
   function decisionTone(approval: Approval) {
     if (approval.status === 'approved') return 'text-[#412d15] dark:text-[#e1dcc9]';
     if (approval.status === 'denied') return 'text-[#8f321c] dark:text-[#d98d72]';
@@ -118,12 +122,12 @@
   <div slot="actions" class="flex items-center gap-1">
     {#if !showHistory}
       <button class="rounded-lg p-1.5 text-[#1f150c]/[.52] transition hover:bg-[#1f150c]/[.06] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.48] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]" title="Approval history" aria-label="Approval history" onclick={() => showHistory = true}>
-        <History size={14} strokeWidth={1.8} />
+        <FileClock size={14} strokeWidth={1.8} />
       </button>
     {/if}
     {#if history.length > 0}
       <button class="rounded-lg p-1.5 text-[#1f150c]/[.52] transition hover:bg-[#1f150c]/[.06] hover:text-[#8f321c] disabled:opacity-40 dark:text-[#e1dcc9]/[.48] dark:hover:bg-white/[.06] dark:hover:text-[#d98d72]" title="Clear approval history" aria-label="Clear approval history" disabled={clearingHistory} onclick={clearHistory}>
-        <Trash2 size={14} strokeWidth={1.8} />
+        <Trash size={14} strokeWidth={1.8} />
       </button>
     {/if}
   </div>
@@ -132,27 +136,65 @@
   {/if}
 
   {#if loading}
-    <div class="rounded-lg border border-[#1f150c]/[.10] bg-[#412d15]/[.03] p-5 text-[11px] text-[#1f150c]/[.48] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.02] dark:text-[#e1dcc9]/[.42]">Loading approval queue...</div>
+    <div class="space-y-3 p-4 sm:p-5" aria-label="Loading approvals" aria-busy="true">
+      {#each Array(3) as _}
+        <div class="overflow-hidden rounded-xl border border-[#1f150c]/[.10] bg-[#412d15]/[.03] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.02]">
+          <div class="flex items-start justify-between gap-4 border-b border-[#1f150c]/[.06] px-4 py-3 dark:border-[#e1dcc9]/[.06]">
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="h-3.5 w-3.5 shrink-0 animate-pulse rounded-full bg-[#1f150c]/[.10] dark:bg-white/[.08]"></div>
+                <div class="h-3 w-28 animate-pulse rounded bg-[#1f150c]/[.10] dark:bg-white/[.08]"></div>
+                <div class="h-4 w-10 animate-pulse rounded-md bg-[#1f150c]/[.08] dark:bg-white/[.06]"></div>
+              </div>
+              <div class="h-2.5 w-48 animate-pulse rounded bg-[#1f150c]/[.06] dark:bg-white/[.05]"></div>
+            </div>
+            <div class="flex shrink-0 gap-2">
+              <div class="h-7 w-14 animate-pulse rounded-lg bg-[#1f150c]/[.07] dark:bg-white/[.06]"></div>
+              <div class="h-7 w-20 animate-pulse rounded-lg bg-[#1f150c]/[.07] dark:bg-white/[.06]"></div>
+              <div class="hidden h-7 w-28 animate-pulse rounded-lg bg-[#1f150c]/[.07] dark:bg-white/[.06] sm:block"></div>
+            </div>
+          </div>
+          <div class="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.35fr)]">
+            <div class="h-28 animate-pulse rounded-lg border border-[#1f150c]/[.06] bg-[#1f150c]/[.04] dark:border-[#e1dcc9]/[.06] dark:bg-white/[.03]"></div>
+            <div class="space-y-2 py-1">
+              <div class="h-2.5 w-20 animate-pulse rounded bg-[#1f150c]/[.07] dark:bg-white/[.06]"></div>
+              <div class="h-2.5 w-full animate-pulse rounded bg-[#1f150c]/[.05] dark:bg-white/[.04]"></div>
+              <div class="h-2.5 w-4/5 animate-pulse rounded bg-[#1f150c]/[.05] dark:bg-white/[.04]"></div>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
   {:else if showHistory}
     <div class="p-4 sm:p-5">
       {#if history.length === 0}
-        <EmptyState title="No approval history" description="Completed approval decisions will appear here." icon={History} />
+        <EmptyState title="No approval history" description="Completed approval decisions will appear here." icon={FileClock} />
       {:else}
         <div class="overflow-hidden rounded-lg border border-[#1f150c]/[.08] bg-[#412d15]/[.02] dark:border-[#e1dcc9]/[.08] dark:bg-white/[.015]">
           {#each history.slice(0, 12) as approval (approval.id)}
             {@const Icon = decisionIcon(approval)}
-            <div class="flex items-center gap-3 border-b border-[#1f150c]/[.06] px-3 py-2.5 last:border-b-0 dark:border-[#e1dcc9]/[.06]">
-              <Icon size={14} strokeWidth={1.8} class={"shrink-0 " + decisionTone(approval)} />
-              <div class="min-w-0 flex-1">
-                <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate text-[10px] font-medium text-[#1f150c]/[.78] dark:text-[#e1dcc9]/[.72]">{approval.tool}</span>
-                  <span class={"shrink-0 text-[9px] " + decisionTone(approval)}>{decisionLabel(approval)}</span>
+            <div class="border-b border-[#1f150c]/[.06] last:border-b-0 dark:border-[#e1dcc9]/[.06]">
+              <button class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#1f150c]/[.03] dark:hover:bg-white/[.03]" aria-expanded={expandedHistoryId === approval.id} onclick={() => toggleHistory(approval.id)}>
+                <Icon size={14} strokeWidth={1.8} class={"shrink-0 " + decisionTone(approval)} />
+                <div class="min-w-0 flex-1">
+                  <div class="flex min-w-0 items-center gap-2">
+                    <span class="truncate text-[10px] font-medium text-[#1f150c]/[.78] dark:text-[#e1dcc9]/[.72]">{approval.tool}</span>
+                    <span class={"shrink-0 text-[9px] " + decisionTone(approval)}>{decisionLabel(approval)}</span>
+                  </div>
+                  <div class="mt-0.5 truncate text-[9px] text-[#1f150c]/[.32] dark:text-[#e1dcc9]/[.25]">Request {approval.requestId}</div>
                 </div>
-                <div class="mt-0.5 truncate text-[9px] text-[#1f150c]/[.32] dark:text-[#e1dcc9]/[.25]">Request {approval.requestId}</div>
-              </div>
-              <span class="shrink-0 text-[9px] tabular-nums text-[#1f150c]/[.35] dark:text-[#e1dcc9]/[.28]">{formatTime(approval.updatedAt)}</span>
+                <span class="shrink-0 text-[9px] tabular-nums text-[#1f150c]/[.35] dark:text-[#e1dcc9]/[.28]">{formatTime(approval.updatedAt)}</span>
+                <ChevronDown size={13} strokeWidth={1.8} class={"shrink-0 transition-transform " + (expandedHistoryId === approval.id ? "rotate-180" : "")} />
+              </button>
+              {#if expandedHistoryId === approval.id}
+                <div class="border-t border-[#1f150c]/[.06] px-3 pb-3 pt-2.5 dark:border-[#e1dcc9]/[.06]">
+                  <div class="mb-1.5 text-[9px] font-medium uppercase tracking-[0.12em] text-[#1f150c]/[.38] dark:text-[#e1dcc9]/[.32]">Tool parameters</div>
+                  <pre class="max-h-64 overflow-auto rounded-md border border-[#1f150c]/[.07] bg-[#1f150c]/[.025] p-2.5 font-mono text-[9px] leading-relaxed text-[#1f150c]/[.68] dark:border-[#e1dcc9]/[.07] dark:bg-white/[.02] dark:text-[#e1dcc9]/[.62]">{formatArgs(approval.args)}</pre>
+                </div>
+              {/if}
             </div>
           {/each}
+
         </div>
       {/if}
     </div>

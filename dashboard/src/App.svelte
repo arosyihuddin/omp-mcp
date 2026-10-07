@@ -40,6 +40,20 @@
   let workspaceItems: { name: string; type: 'directory' | 'file'; size: number | null; modified: string }[] = [];
   let workspaceLoading = false;
   let workspaceError = '';
+  let approvalCandidates = 0;
+  let approvalRequestError = '';
+
+  async function loadApprovalCount() {
+    try {
+      const response = await fetch('/api/approvals', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json() as { approvals?: { status?: string }[] };
+      approvalCandidates = (data.approvals ?? []).filter((approval) => approval.status === 'pending').length;
+      approvalRequestError = '';
+    } catch {
+      approvalRequestError = 'Unable to load approval count';
+    }
+  }
 
   async function loadWorkspace(path = '.') {
     workspaceLoading = true;
@@ -58,7 +72,6 @@
   }
 
   $: pageTitle = nav.find((item) => item[0] === active)?.[1] ?? 'Overview';
-  $: approvalCandidates = tools.filter((tool) => tool.risk === 'medium' || tool.risk === 'high').length;
 
   function routeFor(view: string) {
     return view === 'overview' ? '/' : `/${view}`;
@@ -111,14 +124,17 @@
     navigate(routes[window.location.pathname] ?? 'overview', true);
     sidebarCollapsed = localStorage.getItem('omp-sidebar-collapsed') === 'true';
     refresh();
+    loadApprovalCount();
 
     const onPopState = () => {
       active = routes[window.location.pathname] ?? 'overview';
     };
     window.addEventListener('popstate', onPopState);
     const timer = window.setInterval(refresh, 10000);
+    const approvalTimer = window.setInterval(loadApprovalCount, 1000);
     return () => {
       window.clearInterval(timer);
+      window.clearInterval(approvalTimer);
       window.removeEventListener('popstate', onPopState);
     };
   });
@@ -194,15 +210,15 @@
       <div class="min-h-0 flex-1 rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.10] dark:bg-black">
         <div class="w-full p-5">
           {#if active === 'overview'}
-            <Overview {tools} {sessions} {host} {connected} {navigate} />
+            <Overview {tools} {sessions} {host} {connected} {navigate} {loading} />
           {:else if active === 'workspace'}
             <Workspace path={workspacePath} items={workspaceItems} loading={workspaceLoading} error={workspaceError} open={loadWorkspace} />
           {:else if active === 'tools'}
-            <Tools {tools} />
+            <Tools {tools} {loading} />
           {:else if active === 'approvals'}
             <Approvals />
           {:else if active === 'sessions'}
-            <Sessions {sessions} />
+            <Sessions {sessions} {loading} />
           {:else}
             <Placeholder view={active as 'workspace' | 'logs' | 'git'} />
           {/if}
