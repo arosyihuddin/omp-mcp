@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
 import { createServer } from "./mcp/server";
 import { handleMcpHttpRequest, closeMcpHttpSessions } from "./http";
+import { handleDashboardRequest } from "./dashboard";
 import { config } from "./lib/config";
 
 let server: Awaited<ReturnType<typeof createServer>> | undefined;
@@ -27,11 +28,12 @@ if (config.transport === "http" || config.transport === "both") {
     fetch(request) {
       const url = new URL(request.url);
 
-      if (url.pathname !== config.httpPath) {
-        return new Response("Not Found", { status: 404 });
+      if (url.pathname === config.httpPath) {
+        return handleMcpHttpRequest(request);
       }
 
-      return handleMcpHttpRequest(request);
+      return handleDashboardRequest(request);
+
     },
   });
 

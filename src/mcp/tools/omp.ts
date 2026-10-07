@@ -1,3 +1,4 @@
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import type { OmpSdkSessionManager } from "../../omp/sdk-session";
@@ -5,6 +6,7 @@ import { config } from "../../lib/config";
 import { logger } from "../../lib/logger";
 import { nativeRuntime } from "../../omp/native";
 import { jsonSchemaToZod } from "../json-schema";
+import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorMessage, errorResult, logValue, result } from "./shared";
 
 let nativeToolsLogged = false;
@@ -22,7 +24,7 @@ function getNativeToolDescription(tool: { name: string; description: string }) {
   ].join("\\n");
 }
 
-function getNativeToolAnnotations(name: string) {
+export function getNativeToolAnnotations(name: string) {
   if (["read", "glob", "grep", "find", "ast_grep", "web_search"].includes(name)) {
     return { readOnlyHint: true, openWorldHint: name === "web_search" };
   }
@@ -114,13 +116,28 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     if (nativeTool.name.startsWith("omp_")) continue;
     server.registerTool(nativeTool.name, {
       description: getNativeToolDescription(nativeTool), inputSchema: jsonSchemaToZod(nativeTool.inputSchema), annotations: getNativeToolAnnotations(nativeTool.name),
-    }, async (args) => {
+    }, async (args, extra) => {
       const startedAt = performance.now();
-      logger.debug({ tool: nativeTool.name, args }, "MCP tool call");
+      const toolArgs = args as Record<string, unknown>;
+      logger.debug({ tool: nativeTool.name, args: toolArgs }, "MCP tool call");
       try {
-        const value = await nativeTool.execute(args as Record<string, unknown>);
+        const annotations = getNativeToolAnnotations(nativeTool.name);
+        if (!annotations.readOnlyHint) {
+          const decision = await requestApproval({
+            tool: nativeTool.name,
+            args: toolArgs,
+            risk: annotations.openWorldHint ? "high" : "medium",
+            sessionId: extra.sessionId,
+            requestId: extra.requestId,
+            signal: extra.signal,
+            reason: annotations.openWorldHint ? "This operation can affect external systems." : "This operation can modify state on the host.",
+          });
+          if (!decision.approved) return errorResult(getApprovalDecisionMessage(decision.status));
+        }
+
+        const value = await nativeTool.execute(toolArgs, extra.signal);
         logger.debug({ tool: nativeTool.name, durationMs: Math.round(performance.now() - startedAt), result: logValue(value) }, "MCP tool call completed");
-        if (value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).content)) return value as ReturnType<typeof result>;
+        if (value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).content)) return value as CallToolResult;
         return result(value);
       } catch (error) {
         logger.error({ err: error, tool: nativeTool.name, durationMs: Math.round(performance.now() - startedAt) }, "MCP tool call failed");
