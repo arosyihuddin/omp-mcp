@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { Plus, X, Circle, Terminal as TerminalIcon } from '@lucide/svelte';
+  import { Plus, X, Circle, Terminal as TerminalIcon, PanelLeft } from '@lucide/svelte';
   import { Terminal as XTerm } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
   import '@xterm/xterm/css/xterm.css';
@@ -17,6 +17,8 @@
 
   let terminals: TerminalInfo[] = [];
   let activeId = '';
+  let sessionsOpen = true;
+  const SESSIONS_OPEN_KEY = 'omp-mcp-terminal-sessions-open';
   let terminalElement: HTMLDivElement;
   let term: XTerm | null = null;
   let fit: FitAddon | null = null;
@@ -175,6 +177,11 @@
   }
 
   onMount(() => {
+    const storedSessionsOpen = localStorage.getItem(SESSIONS_OPEN_KEY);
+    if (storedSessionsOpen !== null) {
+      sessionsOpen = storedSessionsOpen === 'true';
+    }
+
     term = new XTerm({
       cursorBlink: true,
       cursorStyle: 'bar',
@@ -199,6 +206,13 @@
     term.open(terminalElement);
     term.onData(sendInput);
     term.onBinary(sendInput);
+    term.attachCustomKeyEventHandler((event) => {
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+      }
+      return true;
+    });
 
     const observer = new ResizeObserver(resize);
     observer.observe(terminalElement);
@@ -209,6 +223,11 @@
 
     return () => observer.disconnect();
   });
+
+  function toggleSessions() {
+    sessionsOpen = !sessionsOpen;
+    localStorage.setItem(SESSIONS_OPEN_KEY, String(sessionsOpen));
+  }
 
   onDestroy(() => {
     socket?.close();
@@ -232,8 +251,10 @@
 
     <div class="ml-auto flex items-center gap-2">
       {#if activeTerminal}
-        <div class="hidden max-w-72 items-center rounded-md border border-white/[.07] bg-white/[.025] px-2.5 py-1.5 text-[10px] text-white/[.40] md:flex">
+        <div class="hidden max-w-72 items-center gap-2 rounded-md border border-white/[.07] bg-white/[.025] px-2.5 py-1.5 text-[10px] text-white/[.40] md:flex">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full {socketState === 'connected' ? 'bg-[#91a67b]' : 'bg-white/[.22]'}"></span>
           <span class="truncate">{activeTerminal.cwd}</span>
+          <span class="shrink-0 text-white/[.25]">{socketState === 'connected' ? 'Connected' : socketState === 'connecting' ? 'Connecting' : 'Disconnected'}</span>
         </div>
       {/if}
       <button
@@ -249,7 +270,8 @@
   </header>
 
   <div class="flex min-h-0 flex-1">
-    <aside class="flex w-52 shrink-0 flex-col border-r border-white/[.07] bg-[#0d0d0e]">
+    <aside class="flex shrink-0 flex-col border-r border-white/[.07] bg-[#0d0d0e] {sessionsOpen ? 'w-52' : 'w-11'}">
+      {#if sessionsOpen}
       <div class="flex h-9 items-center px-3 text-[9px] font-semibold uppercase tracking-[.12em] text-white/[.28]">
         Sessions
       </div>
@@ -296,11 +318,38 @@
         {/if}
       </div>
 
-      <div class="border-t border-white/[.07] px-3 py-2.5">
-        <div class="flex items-center gap-2 text-[9px] text-white/[.28]">
-          <span class="h-1.5 w-1.5 rounded-full {socketState === 'connected' ? 'bg-[#91a67b]' : 'bg-white/[.22]'}"></span>
-          {socketState === 'connected' ? 'Connected' : socketState === 'connecting' ? 'Connecting' : 'Disconnected'}
+      {:else}
+        <div class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2">
+          {#each terminals as item, index}
+            <button
+              type="button"
+              class="group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[10px] font-medium transition {item.id === activeId ? 'bg-white/[.10] text-white/[.88]' : 'text-white/[.38] hover:bg-white/[.055] hover:text-white/[.72]'}"
+              on:click={() => openTerminal(item.id)}
+              aria-label={`Open terminal ${index + 1}`}
+              title={`${index + 1}. ${item.title}`}
+            >
+              <TerminalIcon size={13} strokeWidth={1.7} />
+              <span class="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-[#0d0d0e] bg-white/[.12] px-0.5 text-[8px] leading-none text-white/[.65]">
+                {index + 1}
+              </span>
+              {#if item.status === 'running'}
+                <span class="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#91a67b]"></span>
+              {/if}
+            </button>
+          {/each}
         </div>
+      {/if}
+
+      <div class="mt-auto border-t border-white/[.07] p-1.5">
+        <button
+          type="button"
+          class="flex h-7 w-full items-center justify-center rounded-md text-white/[.35] transition hover:bg-white/[.06] hover:text-white/[.70]"
+          on:click={toggleSessions}
+          aria-label={sessionsOpen ? 'Hide sessions' : 'Show sessions'}
+          title={sessionsOpen ? 'Hide sessions' : 'Show sessions'}
+        >
+          <PanelLeft size={15} strokeWidth={1.8} />
+        </button>
       </div>
     </aside>
 

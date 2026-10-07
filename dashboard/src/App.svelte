@@ -171,19 +171,30 @@
     <aside class="relative flex h-screen shrink-0 flex-col bg-[#e1dcc9] transition-[width] duration-200 ease-out dark:bg-black {sidebarCollapsed ? 'w-16' : 'w-[248px]'}">
       <div class="group relative flex h-20 shrink-0 items-center justify-between px-4">
         <div class="flex min-w-0 items-center gap-3 transition-opacity duration-150 {sidebarCollapsed ? 'mx-auto w-8' : ''}">
-          <div class="group/logo relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.08] dark:border-[#e1dcc9]/[.10] dark:bg-[#09090b]">
-            <svg viewBox="0 0 64 64" class="h-full w-full transition-opacity duration-150 {sidebarCollapsed ? 'group-hover:opacity-0' : ''}" aria-hidden="true">
-              <rect width="64" height="64" rx="16" fill="#412d15" />
-              <path d="M18 20h28v8H27v8h15v8H27v8h19v-8h-11v-8h11V20H18Z" fill="#e1dcc9" />
-              <circle cx="49" cy="15" r="4" fill="#e1dcc9" />
-            </svg>
-          </div>
+          {#if sidebarCollapsed}
+            <button
+              class="group/logo relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.08] transition dark:border-[#e1dcc9]/[.10] dark:bg-[#09090b]"
+              type="button"
+              on:click={toggleSidebar}
+              aria-label="Buka sidebar"
+              title="Buka sidebar"
+            >
+              <img src="/favicon.svg" alt="" class="h-full w-full transition-opacity duration-150 group-hover/logo:opacity-0" />
+              <span class="absolute inset-0 flex items-center justify-center text-[#412d15]/[.70] opacity-0 transition-opacity duration-150 group-hover/logo:opacity-100 dark:text-[#e1dcc9]/[.58]">
+                <PanelLeft size={16} strokeWidth={1.8} />
+              </span>
+            </button>
+          {:else}
+            <div class="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.08] dark:border-[#e1dcc9]/[.10] dark:bg-[#09090b]">
+              <img src="/favicon.svg" alt="" class="h-full w-full" />
+            </div>
+          {/if}
           <div class="min-w-0 {sidebarCollapsed ? 'hidden' : ''}">
-            <div class="truncate text-[14px] font-semibold tracking-tight">OMP Control Plane</div>
-            <div class="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-[#412d15]/[.50] dark:text-[#e1dcc9]/[.36]">Local management</div>
+            <div class="truncate text-[13px] font-semibold tracking-[-.01em]">OMP MCP CPanel</div>
+            <div class="mt-0.5 text-[9px] text-[#412d15]/[.45] dark:text-[#e1dcc9]/[.30]">Control Panel</div>
           </div>
         </div>
-        <button class="flex h-4 w-4 items-center justify-center rounded-md text-[#412d15]/[.70] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.58] dark:hover:bg-[#412d15]/[.35] dark:hover:text-[#e1dcc9] {sidebarCollapsed ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100' : ''}" type="button" on:click={toggleSidebar} aria-label={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'} title={sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'}>
+        <button class="flex h-4 w-4 items-center justify-center rounded-md text-[#412d15]/[.70] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.58] dark:hover:bg-[#412d15]/[.35] dark:hover:text-[#e1dcc9] {sidebarCollapsed ? 'hidden' : ''}" type="button" on:click={toggleSidebar} aria-label="Tutup sidebar" title="Tutup sidebar">
           <PanelLeft size={16} strokeWidth={1.8} />
         </button>
       </div>
