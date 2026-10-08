@@ -19,7 +19,7 @@
 <PagePanel title="Tool call logs" description="Persistent MCP tool-call history stored in SQLite.">
   <div class="flex items-center gap-2 border-b border-[#1f150c]/[.10] p-4 dark:border-[#e1dcc9]/[.06] max-[700px]:flex-col">
     <input bind:value={search} placeholder="Search tool calls…" class="flex-1 rounded-lg border border-[#1f150c]/[.15] bg-white/40 px-3 py-2 text-[11px] outline-none dark:border-[#e1dcc9]/[.10] dark:bg-black dark:text-[#e1dcc9] max-[700px]:w-full" />
-    <div class="flex gap-1">{#each ['all', 'success', 'error'] as level}<button type="button" class="rounded-md border px-2.5 py-1.5 text-[10px] capitalize transition {status === level ? 'border-[#1f150c]/[.15] bg-[#412d15]/[.12]' : 'border-transparent hover:bg-[#412d15]/[.10]'}" on:click={() => status = level}>{level}</button>{/each}</div>
+    <div class="flex gap-1">{#each ['all', 'success', 'error'] as level}<button type="button" class="rounded-md border px-2.5 py-1.5 text-[10px] capitalize transition {status === level ? 'border-[#1f150c]/[.15] bg-[#412d15]/[.12] dark:border-[#e1dcc9]/[.12] dark:bg-[#e1dcc9]/[.10]' : 'border-transparent hover:bg-[#412d15]/[.10] dark:hover:bg-[#e1dcc9]/[.08]'}" on:click={() => status = level}>{level}</button>{/each}</div>
     <button type="button" on:click={loadLogs} disabled={loading} class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#1f150c]/[.12] transition hover:bg-[#412d15]/[.10] disabled:opacity-40 dark:border-[#e1dcc9]/[.10]" aria-label="Refresh logs" title="Refresh logs"><RefreshCw size={14} class={loading ? 'animate-spin' : ''} /></button>
   </div>
   {#if error}<div class="px-5 py-4 text-[11px] text-red-700 dark:text-red-400">{error}</div>
