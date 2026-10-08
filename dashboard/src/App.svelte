@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Activity, Folder, LayoutDashboard, Moon, PanelLeft, RefreshCw, ScrollText, ShieldCheck, Sun, Terminal as TerminalIcon, Wrench } from '@lucide/svelte';
+  import { Activity, Folder, LayoutDashboard, Menu, Moon, PanelLeft, RefreshCw, ScrollText, ShieldCheck, Sun, Terminal as TerminalIcon, Wrench } from '@lucide/svelte';
   import Overview from './pages/Overview.svelte';
   import Tools from './pages/Tools.svelte';
   import Approvals from './pages/Approvals.svelte';
@@ -37,6 +37,7 @@
   let loading = true;
   let theme: 'dark' | 'light' = 'dark';
   let sidebarCollapsed = false;
+  let mobileMenuOpen = false;
   let workspacePath = '.';
   let workspaceItems: { name: string; type: 'directory' | 'file'; size: number | null; modified: string }[] = [];
   let workspaceLoading = false;
@@ -67,6 +68,7 @@
 
   function navigate(view: string, replace = false) {
     active = view;
+    mobileMenuOpen = false;
     const url = routeFor(view);
     if (replace) history.replaceState({}, '', url);
     else history.pushState({}, '', url);
@@ -179,7 +181,10 @@
 
 <div class="h-screen overflow-hidden bg-[#e1dcc9] font-sans text-[#1f150c] selection:bg-[#412d15]/[.20] dark:bg-black dark:text-[#e1dcc9] dark:selection:bg-[#412d15]">
   <div class="flex h-screen overflow-hidden bg-[#e1dcc9] dark:bg-black">
-    <aside class="relative flex h-screen shrink-0 flex-col bg-[#e1dcc9] transition-[width] duration-200 ease-out dark:bg-black {sidebarCollapsed ? 'w-16' : 'w-[248px]'}">
+    {#if mobileMenuOpen}
+      <button type="button" class="fixed inset-0 z-30 bg-black/[.45] backdrop-blur-[1px] md:hidden" aria-label="Close navigation" on:click={() => mobileMenuOpen = false}></button>
+    {/if}
+    <aside class="fixed inset-y-0 left-0 z-40 flex h-screen w-[min(84vw,280px)] shrink-0 flex-col bg-[#e1dcc9] shadow-[18px_0_50px_rgba(31,21,12,.12)] transition-transform duration-200 ease-out dark:bg-black dark:shadow-[18px_0_50px_rgba(0,0,0,.35)] md:relative md:z-auto md:shadow-none md:transition-[width] md:duration-200 md:ease-out {mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 {sidebarCollapsed ? 'md:w-16' : 'md:w-[248px]'}">
       <div class="group relative flex h-20 shrink-0 items-center justify-between px-4">
         <div class="flex min-w-0 items-center gap-3 transition-opacity duration-150 {sidebarCollapsed ? 'mx-auto w-8' : ''}">
           {#if sidebarCollapsed}
@@ -230,8 +235,8 @@
         {/each}
       </nav>
 
-      <div class="mt-auto border-t border-[#1f150c]/[.15] p-3 dark:border-[#e1dcc9]/[.07]">
-        <div class="rounded-lg border border-[#1f150c]/[.12] bg-[#412d15]/[.06] p-3 dark:border-[#e1dcc9]/[.06] dark:bg-white/[.02] {sidebarCollapsed ? 'hidden' : ''}">
+      <div class="mt-auto border-t border-[#1f150c]/[.15] p-3 dark:border-[#e1dcc9]/[.18]">
+        <div class="rounded-lg border border-[#1f150c]/[.12] bg-[#412d15]/[.06] p-3 dark:border-[#e1dcc9]/[.18] dark:bg-white/[.02] {sidebarCollapsed ? 'hidden' : ''}">
           <div class="flex items-center gap-2 text-[11px] font-medium text-[#1f150c] dark:text-[#e1dcc9]">
             <span class="h-1.5 w-1.5 rounded-full {connected ? 'bg-[#412d15] shadow-[0_0_10px_rgba(65,45,21,.2)] dark:bg-[#e1dcc9] dark:shadow-[0_0_10px_rgba(225,220,201,.28)]' : 'bg-[#412d15]/[.40] dark:bg-[#e1dcc9]/[.30]'}"></span>
             {connected ? 'MCP server connected' : 'MCP server offline'}
@@ -243,12 +248,17 @@
 
     <main class="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
-      <header class="flex h-20 shrink-0 items-center justify-between bg-[#e1dcc9]/[.95] px-5 backdrop-blur-xl dark:bg-black/90">
-        <div>
-          <h1 class="text-[20px] font-semibold tracking-tight">{pageTitle}</h1>
-          <p class="mt-1 text-[11px] text-[#412d15]/[.60] dark:text-[#e1dcc9]/[.36]">Operate and observe OMP-MCP without changing the OMP agent runtime.</p>
+      <header class="flex h-16 shrink-0 items-center justify-between gap-3 bg-[#e1dcc9]/[.95] px-3 backdrop-blur-xl dark:bg-black/90 sm:h-20 sm:px-5">
+        <div class="flex min-w-0 items-center gap-2">
+          <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.04] text-[#412d15]/[.75] transition hover:bg-[#412d15]/[.10] dark:border-[#e1dcc9]/[.10] dark:bg-white/[.02] dark:text-[#e1dcc9]/[.58] dark:hover:bg-white/[.04] md:hidden" on:click={() => mobileMenuOpen = true} aria-label="Open navigation">
+            <Menu size={17} strokeWidth={1.8} />
+          </button>
+          <div class="min-w-0">
+            <h1 class="truncate text-[17px] font-semibold tracking-tight sm:text-[20px]">{pageTitle}</h1>
+            <p class="mt-1 hidden text-[11px] text-[#412d15]/[.60] dark:text-[#e1dcc9]/[.36] sm:block">Operate and observe OMP-MCP without changing the OMP agent runtime.</p>
+          </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex shrink-0 items-center gap-2 sm:gap-3">
           <button class="flex h-9 w-9 items-center justify-center rounded-lg border border-[#1f150c]/[.15] bg-[#412d15]/[.04] text-[#412d15]/[.75] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#e1dcc9]/[.10] dark:bg-white/[.02] dark:text-[#e1dcc9]/[.58] dark:hover:bg-white/[.04] dark:hover:text-[#e1dcc9]" on:click={refresh} aria-label="Refresh" title="Refresh" disabled={loading}><RefreshCw size={15} strokeWidth={1.8} class={loading ? 'animate-spin' : ''} /></button>
           <button class="flex h-9 w-9 items-center justify-center rounded-lg border border-[#1f150c]/[.15] text-[#412d15]/[.70] transition hover:bg-[#412d15]/[.10] hover:text-[#1f150c] dark:border-[#e1dcc9]/[.10] dark:text-[#e1dcc9]/[.58] dark:hover:bg-[#412d15]/[.30] dark:hover:text-[#e1dcc9]" on:click={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
             {#if theme === 'dark'}<Sun size={16} strokeWidth={1.7} />{:else}<Moon size={16} strokeWidth={1.7} />{/if}
@@ -256,8 +266,8 @@
         </div>
       </header>
 
-      <div class="min-h-0 flex-1 overflow-hidden rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.18] dark:bg-black">
-        <div class="h-full min-h-0 w-full {active === 'terminal' ? 'overflow-hidden p-5' : 'overflow-y-auto p-5'}">
+      <div class="min-h-0 flex-1 overflow-hidden rounded-tl-xl border-l-[1.5px] border-t-[1.5px] border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.18] dark:bg-black sm:rounded-tl-2xl">
+        <div class="h-full min-h-0 w-full {active === 'terminal' ? 'overflow-hidden p-3 sm:p-5' : 'overflow-y-auto p-3 sm:p-5'}">
 
           {#if active === 'overview'}
             <Overview {tools} {sessions} {host} {connected} {navigate} {loading} />
