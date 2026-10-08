@@ -3,6 +3,7 @@ export type Tool = {
   group: string;
   risk: 'low' | 'medium' | 'high' | 'isolated';
   description: string;
+  exposed: boolean;
 };
 export type Session = {
   sessionId: string;

@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791397136432,
+      "tag": "0000_majestic_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791430000000,
+      "tag": "0001_add_tool_call_log_result",
+      "breakpoints": true
+    }
+  ]
+}

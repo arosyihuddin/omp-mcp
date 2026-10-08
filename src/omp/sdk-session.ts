@@ -10,7 +10,7 @@ import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
 import { DEFAULT_RELAY_URL } from "@oh-my-pi/pi-coding-agent/collab/protocol";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import { config } from "../lib/config";
-import { emitDashboardEvent } from "../dashboard-events";
+import { emitDashboardEvent } from "../dashboard/events";
 import type { OmpSession } from "./types";
 
 

@@ -40,6 +40,12 @@ function safeWrite(terminal: Bun.Terminal, data: string) {
   } catch {}
 }
 
+function trimOutputBuffer(text: string) {
+  if (text.length <= MAX_BUFFER) return text;
+  const start = text.length - MAX_BUFFER;
+  const escape = text.indexOf("\x1b", start);
+  return text.slice(escape >= 0 ? escape : start);
+}
 function stripLeadingWhitespaceLine(text: string) {
   return text.replace(/^[ \t]+\r?\n/, "");
 }
@@ -215,7 +221,7 @@ class TerminalManager {
   }
 
   private broadcast(terminal: TerminalRecord, text: string) {
-    terminal.output = (terminal.output + text).slice(-MAX_BUFFER);
+    terminal.output = trimOutputBuffer(terminal.output + text);
     terminal.updatedAt = new Date().toISOString();
     for (const client of terminal.clients) {
       try {

@@ -1,7 +1,7 @@
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { createServer } from "./mcp/server";
-import { logger } from "./lib/logger";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createServer } from "../mcp/server";
+import { logger } from "../lib/logger";
 
 interface HttpSession {
   server: McpServer;

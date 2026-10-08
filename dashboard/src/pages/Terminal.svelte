@@ -226,10 +226,9 @@ function toggleFullscreen() {
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        sendInput('\x1b');
-        return false;
+      } else {
+        event.stopPropagation();
       }
-      event.stopPropagation();
       return true;
     });
 

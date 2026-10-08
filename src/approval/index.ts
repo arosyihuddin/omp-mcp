@@ -1,4 +1,4 @@
-import { emitDashboardEvent } from "./dashboard-events";
+import { emitDashboardEvent } from "../dashboard/events";
 
 export type ApprovalRisk = "medium" | "high";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "cancelled";

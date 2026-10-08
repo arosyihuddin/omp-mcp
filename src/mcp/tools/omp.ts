@@ -1,6 +1,7 @@
+import { registerExposedTool } from "./register";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { OmpSdkSessionManager } from "../../omp/sdk-session";
 import { config } from "../../lib/config";
 import { logger } from "../../lib/logger";
@@ -8,6 +9,7 @@ import { nativeRuntime } from "../../omp/native";
 import { jsonSchemaToZod } from "../json-schema";
 import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorMessage, errorResult, logValue, result } from "./shared";
+import { getNativeToolAnnotations } from "./native-metadata";
 
 let nativeToolsLogged = false;
 
@@ -24,21 +26,8 @@ function getNativeToolDescription(tool: { name: string; description: string }) {
   ].join("\\n");
 }
 
-export function getNativeToolAnnotations(name: string) {
-  if (["read", "glob", "grep", "find", "ast_grep", "web_search"].includes(name)) {
-    return { readOnlyHint: true, openWorldHint: name === "web_search" };
-  }
-  if (["lsp", "todo", "new_context"].includes(name)) {
-    return { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-  }
-  if (["write", "edit", "ast_edit", "context_notes", "learn", "manage_skill", "task", "debug", "bash", "eval"].includes(name)) {
-    return { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: name === "bash" || name === "eval" };
-  }
-  return { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
-}
-
 export async function registerOmpTools(server: McpServer, manager: OmpSdkSessionManager) {
-  server.registerTool("omp_run", {
+  registerExposedTool(server, "omp_run", {
     description: "Start an OMP coding-agent session. Optionally select a specific model.",
     inputSchema: { task: z.string().min(1), cwd: z.string().min(1).optional(), model: z.string().min(1).optional() },
   }, async ({ task, cwd, model }) => {
@@ -53,7 +42,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     }
   });
 
-  server.registerTool("omp_collab", {
+  registerExposedTool(server, "omp_collab", {
     description: "Get the browser collaboration links for an OMP session.", inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
     logger.debug({ tool: "omp_collab", sessionId: session_id }, "MCP tool call");
@@ -61,7 +50,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     return collab ? result({ session_id, collab }) : errorResult(`No active Collab host for session: ${session_id}`);
   });
 
-  server.registerTool("omp_status", {
+  registerExposedTool(server, "omp_status", {
     description: "Get the current status and metadata for an OMP session.", inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
     logger.debug({ tool: "omp_status", sessionId: session_id }, "MCP tool call");
@@ -69,7 +58,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     return session ? result(session) : errorResult(`Unknown session: ${session_id}`);
   });
 
-  server.registerTool("omp_result", {
+  registerExposedTool(server, "omp_result", {
     description: "Get the latest result and metadata for an OMP session.", inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
     logger.debug({ tool: "omp_result", sessionId: session_id }, "MCP tool call");
@@ -78,7 +67,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     return result({ session_id: session.sessionId, status: session.status, result: session.result, error: session.error });
   });
 
-  server.registerTool("omp_resume", {
+  registerExposedTool(server, "omp_resume", {
     description: "Resume an existing OMP session with an additional instruction.", inputSchema: { session_id: z.string().min(1), task: z.string().min(1) },
   }, async ({ session_id, task }) => {
     logger.debug({ tool: "omp_resume", sessionId: session_id }, "MCP tool call");
@@ -86,7 +75,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("omp_interrupt", {
+  registerExposedTool(server, "omp_interrupt", {
     description: "Interrupt a running OMP session.", inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
     logger.debug({ tool: "omp_interrupt", sessionId: session_id }, "MCP tool call");
@@ -94,7 +83,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     return ok ? result({ session_id, status: "interrupted" }) : errorResult(`No running session: ${session_id}`);
   });
 
-  server.registerTool("omp_dispose", {
+  registerExposedTool(server, "omp_dispose", {
     description: "Dispose an OMP session and remove it from the MCP server.", inputSchema: { session_id: z.string().min(1) },
   }, async ({ session_id }) => {
     logger.debug({ tool: "omp_dispose", sessionId: session_id }, "MCP tool call");
@@ -103,7 +92,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
     return result({ session_id, disposed: true });
   });
 
-  server.registerTool("omp_list", {
+  registerExposedTool(server, "omp_list", {
     description: "List OMP sessions managed by this MCP server.",
     inputSchema: { status: z.enum(["all", "starting", "running", "completed", "failed", "interrupted"]).optional().default("all") },
   }, async ({ status }) => {
@@ -114,7 +103,7 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
   const nativeTools = await nativeRuntime.list(config.ompDefaultCwd);
   for (const nativeTool of nativeTools) {
     if (nativeTool.name.startsWith("omp_")) continue;
-    server.registerTool(nativeTool.name, {
+    registerExposedTool(server, nativeTool.name, {
       description: getNativeToolDescription(nativeTool), inputSchema: jsonSchemaToZod(nativeTool.inputSchema), annotations: getNativeToolAnnotations(nativeTool.name),
     }, async (args, extra) => {
       const startedAt = performance.now();

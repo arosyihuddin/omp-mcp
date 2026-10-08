@@ -1,16 +1,18 @@
-import { subscribeDashboardEvents } from "./dashboard-events";
+import { subscribeDashboardEvents } from "./events";
 
 import { readdir, stat } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
-import { config } from "./lib/config";
-import { getCapabilities, getHardwareInfo, getSystemInfo } from "./system/info";
-import { approveApproval, clearApprovalHistory, denyApproval, listApprovals } from "./approval";
-import { sdkSessionManager } from "./omp/sdk-session";
+import { config } from "../lib/config";
+import { getCapabilities, getHardwareInfo, getSystemInfo } from "../system/info";
+import { approveApproval, clearApprovalHistory, denyApproval, listApprovals } from "../approval";
+import { sdkSessionManager } from "../omp/sdk-session";
 
-import { getDashboardTools } from "./dashboard-tools";
-import { terminalManager } from "./terminal";
+import { getDashboardTools } from "./tools";
+import { setToolExposed } from "../control-plane/tools/exposure";
+import { terminalManager } from "../terminal";
+import { listToolCallLogs } from "../control-plane/logs";
 
-const dashboardRoot = new URL("../dashboard/dist/", import.meta.url);
+const dashboardRoot = new URL("../../dashboard/dist/", import.meta.url);
 
 function workspacePath(input: string | null) {
   const root = resolve(config.ompDefaultCwd);
@@ -127,6 +129,25 @@ export async function handleDashboardRequest(request: Request): Promise<Response
   }
 
 
+  const toolMatch = url.pathname.match(/^\/api\/tools\/(.+)$/);
+  if (toolMatch && request.method === "PATCH") {
+    try {
+      const name = decodeURIComponent(toolMatch[1]);
+      const body = await request.json() as { exposed?: unknown };
+      if (typeof body.exposed !== "boolean") throw new Error("exposed must be a boolean");
+      setToolExposed(name, body.exposed);
+      const tool = (await getDashboardTools()).find((item) => item.name === name);
+      if (!tool) return Response.json({ error: "Unknown tool" }, { status: 404 });
+      return Response.json({ tool }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to update tool exposure" }, { status: 400 });
+    }
+  }
+  if (url.pathname === "/api/logs" && request.method === "GET") {
+    const rawLimit = Number(url.searchParams.get("limit") ?? "100");
+    const limit = Number.isFinite(rawLimit) ? rawLimit : 100;
+    return Response.json({ logs: listToolCallLogs(limit) }, { headers: { "cache-control": "no-store" } });
+  }
   if (url.pathname === "/api/dashboard") {
     const [system, hardware, capabilities, tools] = await Promise.all([
       getSystemInfo(), getHardwareInfo(), getCapabilities(), getDashboardTools()

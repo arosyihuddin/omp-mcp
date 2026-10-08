@@ -4,10 +4,17 @@
   import type { Tool } from '../lib/types';
   export let tools: Tool[] = [];
   export let loading = true;
+  export let updateExposure: (tool: Tool, exposed: boolean) => Promise<void> = async () => {};
   let search = '';
   let risk = 'all';
   $: filteredTools = tools.filter((tool) => (!search || (tool.name + ' ' + tool.description + ' ' + tool.group).toLowerCase().includes(search.toLowerCase())) && (risk === 'all' || tool.risk === risk));
   function iconFor(group: string) { return group === 'OMP Agent' ? Workflow : group === 'Computer' ? SquareDashed : group === 'System' ? Box : Wrench; }
+  let updating = new Set<string>();
+  async function toggleExposure(tool: Tool) {
+    if (updating.has(tool.name)) return;
+    updating = new Set(updating).add(tool.name);
+    try { await updateExposure(tool, !tool.exposed); } finally { const next = new Set(updating); next.delete(tool.name); updating = next; }
+  }
 </script>
 <PagePanel title="Tool catalog" description="Risk is descriptive metadata. Approval UI can consume it without duplicating policy.">
   {#if loading}
@@ -28,10 +35,17 @@
   </div>
   <div class="divide-y divide-[#1f150c]/[.10] dark:divide-[#e1dcc9]/[.05]">
     {#each filteredTools as tool}{@const Icon = iconFor(tool.group)}
-      <div class="relative z-[1] grid grid-cols-[32px_1fr_120px] items-center gap-3 px-5 py-4 transition hover:bg-[#412d15]/[.08] dark:hover:bg-[#412d15]/[.24] max-[700px]:grid-cols-[32px_1fr]">
+      <div class="relative z-[1] grid grid-cols-[32px_1fr_120px_40px] items-center gap-3 px-5 py-4 transition hover:bg-[#412d15]/[.08] dark:hover:bg-[#412d15]/[.24] max-[700px]:grid-cols-[32px_1fr]">
         <div class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1f150c]/[.12] bg-[#412d15]/[.08] text-[#412d15]/[.70] dark:border-[#e1dcc9]/[.08] dark:bg-[#412d15]/[.28] dark:text-[#e1dcc9]/[.58]"><Icon size={16} strokeWidth={1.8} /></div>
         <div class="min-w-0"><div class="flex items-center gap-2"><span class="font-mono text-[12px] text-[#1f150c] dark:text-[#e1dcc9]">{tool.name}</span><span class="rounded-md bg-[#412d15]/[.10] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#412d15] dark:bg-[#412d15]/[.80] dark:text-[#e1dcc9]">{tool.risk}</span></div><div class="mt-1 text-[11px] text-[#412d15]/[.62] dark:text-[#e1dcc9]/[.36]">{tool.description}</div></div>
-        <div class="text-right text-[10px] uppercase tracking-wider text-[#412d15]/[.45] dark:text-[#e1dcc9]/[.36] max-[700px]:hidden">{tool.group}</div>
+        <div class="contents">
+          <div class="text-right text-[10px] uppercase tracking-wider text-[#412d15]/[.45] dark:text-[#e1dcc9]/[.36] max-[700px]:hidden">{tool.group}</div>
+          <div class="flex items-center justify-end max-[700px]:col-start-2 max-[700px]:mt-2">
+            <button type="button" on:click={() => toggleExposure(tool)} disabled={updating.has(tool.name)} aria-label={tool.exposed ? `Hide ${tool.name}` : `Expose ${tool.name}`} title={tool.exposed ? 'Hide from MCP clients' : 'Expose to MCP clients'} class="relative h-5 w-9 rounded-full border transition disabled:opacity-50 {tool.exposed ? 'border-[#412d15] bg-[#412d15] dark:border-[#e1dcc9] dark:bg-[#e1dcc9]' : 'border-[#1f150c]/[.18] bg-transparent dark:border-[#e1dcc9]/[.16]'}">
+              <span class="absolute top-0.5 h-3.5 w-3.5 rounded-full transition-all {tool.exposed ? 'left-[18px] bg-[#e1dcc9] dark:bg-black' : 'left-0.5 bg-[#412d15]/[.45] dark:bg-[#e1dcc9]/[.45]'}"></span>
+            </button>
+          </div>
+        </div>
       </div>
     {/each}
   </div>

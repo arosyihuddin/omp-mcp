@@ -1,5 +1,6 @@
+import { registerExposedTool } from "./register";
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { takeScreenshot, listWindows, activeWindow, focusWindow, closeWindow, moveWindow, listApps, mouseMove, mouseClick, mouseDrag, mouseScroll, keyPress, typeText } from "../../computer";
 import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorMessage, errorResult, result } from "./shared";
@@ -19,7 +20,7 @@ async function requireApproval(tool: string, args: Record<string, unknown>, extr
 }
 
 export function registerComputerTools(server: McpServer) {
-  server.registerTool("window_list", {
+  registerExposedTool(server, "window_list", {
     description: "List currently open desktop windows and their workspace, monitor, application, and focus state.",
     inputSchema: {}, annotations: screenshotOutput,
   }, async () => {
@@ -27,7 +28,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("window_active", {
+  registerExposedTool(server, "window_active", {
     description: "Get the desktop window that currently has keyboard focus.",
     inputSchema: {}, annotations: screenshotOutput,
   }, async () => {
@@ -35,14 +36,14 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("window_focus", {
+  registerExposedTool(server, "window_focus", {
     description: "Focus a desktop window by its window id.",
     inputSchema: { id: z.string().min(1) }, annotations: input,
   }, async ({ id }, extra) => {
     try { await requireApproval("window_focus", { id }, extra, "medium"); await focusWindow(id); return result({ ok: true, action: "window_focus", id }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
-  server.registerTool("window_close", {
+  registerExposedTool(server, "window_close", {
     description: "Close a desktop window by its window id.",
     inputSchema: { id: z.string().min(1) }, annotations: input,
   }, async ({ id }, extra) => {
@@ -50,7 +51,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("window_move", {
+  registerExposedTool(server, "window_move", {
     description: "Move a desktop window to a workspace by its window id.",
     inputSchema: { id: z.string().min(1), workspace: z.string().min(1) }, annotations: input,
   }, async ({ id, workspace }, extra) => {
@@ -59,7 +60,7 @@ export function registerComputerTools(server: McpServer) {
   });
 
 
-  server.registerTool("app_list", {
+  registerExposedTool(server, "app_list", {
     description: "List desktop applications available on the operating system. Supports optional search and result limit.",
     inputSchema: {
       query: z.string().optional().describe("Search by application name, id, or executable."),
@@ -70,7 +71,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("mouse_move", {
+  registerExposedTool(server, "mouse_move", {
     description: "Move the mouse pointer to absolute screen coordinates.",
     inputSchema: { x: z.number(), y: z.number() }, annotations: { ...input, idempotentHint: true },
   }, async ({ x, y }, extra) => {
@@ -78,7 +79,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("mouse_click", {
+  registerExposedTool(server, "mouse_click", {
     description: "Click the mouse at the current cursor position. Defaults to left click.",
     inputSchema: {
       button: z.enum(["left", "right", "middle", "back", "forward"]).optional().default("left"),
@@ -89,7 +90,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("mouse_drag", {
+  registerExposedTool(server, "mouse_drag", {
     description: "Drag the left mouse button from one screen coordinate to another.",
     inputSchema: { from_x: z.number(), from_y: z.number(), to_x: z.number(), to_y: z.number() },
     annotations: input,
@@ -98,7 +99,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("mouse_scroll", {
+  registerExposedTool(server, "mouse_scroll", {
     description: "Scroll the mouse wheel. Positive or negative values control direction.",
     inputSchema: { dx: z.number().optional().default(0), dy: z.number().optional().default(0) },
     annotations: { ...input, idempotentHint: true },
@@ -107,7 +108,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("keyboard_press", {
+  registerExposedTool(server, "keyboard_press", {
     description: "Press and release a keyboard key, or a key combination such as Ctrl+C.",
     inputSchema: { keys: z.array(z.string().min(1)).min(1).max(10) }, annotations: input,
   }, async ({ keys }, extra) => {
@@ -115,7 +116,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("keyboard_hotkey", {
+  registerExposedTool(server, "keyboard_hotkey", {
     description: "Press a keyboard shortcut using the supplied modifier/key sequence.",
     inputSchema: { keys: z.array(z.string().min(1)).min(2).max(10) }, annotations: input,
   }, async ({ keys }, extra) => {
@@ -123,7 +124,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("keyboard_type", {
+  registerExposedTool(server, "keyboard_type", {
     description: "Type literal text into the currently focused application.",
     inputSchema: { text: z.string().max(10000) }, annotations: input,
   }, async ({ text }, extra) => {
@@ -131,7 +132,7 @@ export function registerComputerTools(server: McpServer) {
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
-  server.registerTool("screenshot", {
+  registerExposedTool(server, "screenshot", {
     description: "Capture the current desktop screen as a PNG. Requires an interactive GUI session.",
     inputSchema: { output_path: z.string().min(1).optional() }, annotations: screenshotOutput,
   }, async ({ output_path }) => {

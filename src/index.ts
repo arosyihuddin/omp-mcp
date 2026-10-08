@@ -1,8 +1,8 @@
 import { mkdir } from "node:fs/promises";
 import { logger } from "./lib/logger";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp/server";
-import { handleMcpHttpRequest, closeMcpHttpSessions } from "./http";
+import { handleMcpHttpRequest, closeMcpHttpSessions } from "./app/http";
 import { handleDashboardRequest } from "./dashboard";
 import { terminalManager } from "./terminal";
 import { config } from "./lib/config";

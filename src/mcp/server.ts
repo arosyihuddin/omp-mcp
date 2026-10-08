@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { sdkSessionManager } from "../omp/sdk-session";
+import "../control-plane/db";
 import { registerTools } from "./tools";
 
 export async function createServer() {

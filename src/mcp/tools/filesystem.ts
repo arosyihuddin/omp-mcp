@@ -1,14 +1,15 @@
+import { registerExposedTool } from "./register";
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { config } from "../../lib/config";
 import { logger } from "../../lib/logger";
-import { fsFind, fsGrep } from "../../fs/search";
+import { fsFind, fsGrep } from "../../filesystem/search";
 import { errorMessage, errorResult, logValue, result } from "./shared";
 
 const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 
 export function registerFilesystemTools(server: McpServer) {
-  server.registerTool("fs_find", {
+  registerExposedTool(server, "fs_find", {
     description: "Fast filesystem search for files and directories using fd. Suitable for large directory trees; read-only.",
     inputSchema: {
       pattern: z.string().optional(), path: z.string().min(1).optional(),
@@ -30,7 +31,7 @@ export function registerFilesystemTools(server: McpServer) {
     }
   });
 
-  server.registerTool("fs_grep", {
+  registerExposedTool(server, "fs_grep", {
     description: "Fast recursive content search using ripgrep. Suitable for large directory trees; read-only.",
     inputSchema: {
       pattern: z.string().min(1), path: z.string().min(1).optional(), glob: z.string().min(1).optional(),

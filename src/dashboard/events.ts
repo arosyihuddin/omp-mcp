@@ -4,7 +4,8 @@ export type DashboardEventType =
   | "approval.cleared"
   | "session.created"
   | "session.updated"
-  | "session.removed";
+  | "session.removed"
+  | "tool_call.created";
 
 export type DashboardEvent = {
   type: DashboardEventType;

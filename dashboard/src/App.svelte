@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Activity, Folder, GitBranch, LayoutDashboard, Moon, PanelLeft, RefreshCw, ShieldCheck, Sun, Terminal as TerminalIcon, Wrench } from '@lucide/svelte';
+  import { Activity, Folder, LayoutDashboard, Moon, PanelLeft, RefreshCw, ScrollText, ShieldCheck, Sun, Terminal as TerminalIcon, Wrench } from '@lucide/svelte';
   import Overview from './pages/Overview.svelte';
   import Tools from './pages/Tools.svelte';
   import Approvals from './pages/Approvals.svelte';
   import Sessions from './pages/Sessions.svelte';
   import Workspace from './pages/Workspace.svelte';
   import TerminalPage from './pages/Terminal.svelte';
-  import Placeholder from './pages/Placeholder.svelte';
+  import Logs from './pages/Logs.svelte';
   import type { HostTelemetry, Session, Tool } from './lib/types';
   const nav = [
     ['overview', 'Overview', LayoutDashboard],
@@ -16,7 +16,7 @@
     ['approvals', 'Approvals', ShieldCheck],
     ['sessions', 'OMP Sessions', Activity],
     ['terminal', 'Terminal', TerminalIcon],
-    ['git', 'Git', GitBranch]
+    ['logs', 'Logs', ScrollText]
   ] as const;
 
   const routes: Record<string, string> = {
@@ -26,7 +26,7 @@
     '/approvals': 'approvals',
     '/sessions': 'sessions',
     '/terminal': 'terminal',
-    '/git': 'git'
+    '/logs': 'logs'
   };
 
   let active = 'overview';
@@ -87,6 +87,17 @@
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
     localStorage.setItem('omp-sidebar-collapsed', String(sidebarCollapsed));
+  }
+
+  async function updateToolExposure(tool: Tool, exposed: boolean) {
+    const response = await fetch(`/api/tools/${encodeURIComponent(tool.name)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ exposed }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'Unable to update tool exposure');
+    tools = tools.map((item) => item.name === tool.name ? data.tool : item);
   }
 
   async function refresh() {
@@ -253,7 +264,7 @@
           {:else if active === 'workspace'}
             <Workspace path={workspacePath} items={workspaceItems} loading={workspaceLoading} error={workspaceError} open={loadWorkspace} />
           {:else if active === 'tools'}
-            <Tools {tools} {loading} />
+            <Tools {tools} {loading} updateExposure={updateToolExposure} />
           {:else if active === 'approvals'}
             <Approvals />
           {:else if active === 'sessions'}
@@ -262,8 +273,8 @@
             <div class="h-full min-h-0">
               <TerminalPage />
             </div>
-          {:else}
-            <Placeholder view={active as 'git'} />
+          {:else if active === 'logs'}
+            <Logs />
           {/if}
         </div>
       </div>
