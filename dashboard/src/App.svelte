@@ -256,7 +256,7 @@
         </div>
       </header>
 
-      <div class="min-h-0 flex-1 overflow-hidden rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.10] dark:bg-black">
+      <div class="min-h-0 flex-1 overflow-hidden rounded-tl-2xl border-l border-t border-[#1f150c]/[.15] bg-[#e1dcc9] dark:border-[#e1dcc9]/[.18] dark:bg-black">
         <div class="h-full min-h-0 w-full {active === 'terminal' ? 'overflow-hidden p-5' : 'overflow-y-auto p-5'}">
 
           {#if active === 'overview'}
