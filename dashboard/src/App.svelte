@@ -31,6 +31,8 @@
 
   let active = 'overview';
   let tools: Tool[] = [];
+  let toolCount = 0;
+  let toolRiskCounts: Record<string, number> = {};
   let sessions: Session[] = [];
   let host: HostTelemetry = {};
   let connected = false;
@@ -91,6 +93,15 @@
     localStorage.setItem('omp-sidebar-collapsed', String(sidebarCollapsed));
   }
 
+  async function loadTools() {
+    try {
+      const response = await fetch('/api/tools', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Tools API unavailable');
+      const data = await response.json();
+      tools = data.tools ?? [];
+    } catch {}
+  }
+
   async function updateToolExposure(tool: Tool, exposed: boolean) {
     const response = await fetch(`/api/tools/${encodeURIComponent(tool.name)}`, {
       method: 'PATCH',
@@ -109,8 +120,10 @@
       if (!response.ok) throw new Error('Dashboard API unavailable');
       const data = await response.json();
       host = data.host ?? {};
-      tools = data.tools ?? [];
+      toolCount = data.toolCount ?? 0;
+      toolRiskCounts = data.toolRiskCounts ?? {};
       sessions = data.sessions ?? [];
+      approvalCandidates = data.approvalCount ?? 0;
       connected = true;
     } catch {
       connected = false;
@@ -149,7 +162,13 @@
       }
     } catch {}
   }
-
+  function applyTelemetryEvent(event: MessageEvent) {
+    try {
+      const data = JSON.parse(event.data) as { system?: Record<string, unknown>; service?: Record<string, unknown> };
+      host = { ...host, system: data.system ?? host.system, service: data.service ?? host.service };
+      connected = true;
+    } catch {}
+  }
 
 
  onMount(() => {
@@ -158,12 +177,15 @@
    navigate(routes[window.location.pathname] ?? 'overview', true);
    sidebarCollapsed = localStorage.getItem('omp-sidebar-collapsed') === 'true';
    refresh();
+   if (routes[window.location.pathname] === 'tools') loadTools();
 
    const onPopState = () => {
      active = routes[window.location.pathname] ?? 'overview';
+     if (active === 'tools') loadTools();
    };
    window.addEventListener('popstate', onPopState);
-   const events = new EventSource('/api/events');
+  const events = new EventSource('/api/events');
+  events.addEventListener('telemetry.updated', applyTelemetryEvent);
    events.addEventListener('dashboard.snapshot', applyApprovalEvent);
   events.addEventListener('dashboard.snapshot', applySessionEvent);
    events.addEventListener('approval.created', applyApprovalEvent);
@@ -270,7 +292,7 @@
         <div class="h-full min-h-0 w-full {active === 'terminal' ? 'overflow-hidden p-3 sm:p-5' : 'overflow-y-auto p-3 sm:p-5'}">
 
           {#if active === 'overview'}
-            <Overview {tools} {sessions} {host} {connected} {navigate} {loading} />
+            <Overview {sessions} {host} {connected} {navigate} {loading} {toolCount} toolRiskCounts={toolRiskCounts} approvalCount={approvalCandidates} />
           {:else if active === 'workspace'}
             <Workspace path={workspacePath} items={workspaceItems} loading={workspaceLoading} error={workspaceError} open={loadWorkspace} />
           {:else if active === 'tools'}

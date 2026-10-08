@@ -3,7 +3,7 @@ import { subscribeDashboardEvents } from "./events";
 import { readdir, stat } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
 import { config } from "../lib/config";
-import { getCapabilities, getHardwareInfo, getSystemInfo } from "../system/info";
+import { getCapabilities, getCpuInfo, getDiskInfo, getDisplayInfo, getDesktopInfo, getGpuInfo, getHardwareInfo, getMemoryInfo, getNetworkInfo, getOsInfo, getRuntimeInfo, getSystemInfo } from "../system/info";
 import { approveApproval, clearApprovalHistory, denyApproval, listApprovals } from "../approval";
 import { sdkSessionManager } from "../omp/sdk-session";
 
@@ -58,6 +58,37 @@ async function serveAsset(pathname: string): Promise<Response> {
   return new Response(file, { headers: { "content-type": contentType(requested), "cache-control": requested === "index.html" ? "no-cache" : "public, max-age=31536000, immutable" } });
 }
 
+async function getDashboardTelemetry() {
+  const [os, cpu, memory, gpu, disk, display, runtime] = await Promise.all([
+    getOsInfo(),
+    getCpuInfo(),
+    getMemoryInfo(),
+    getGpuInfo(),
+    getDiskInfo(),
+    getDisplayInfo(),
+    getRuntimeInfo(),
+  ]);
+  return {
+    system: {
+      os,
+      cpu,
+      memory,
+      gpu,
+      disk,
+      desktop: getDesktopInfo(),
+      display,
+      runtime,
+      network: getNetworkInfo(),
+    },
+    service: {
+      transport: config.transport,
+      httpHost: config.httpHost,
+      httpPort: config.httpPort,
+      httpPath: config.httpPath,
+    },
+  };
+}
+
 export async function handleDashboardRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
@@ -79,13 +110,27 @@ export async function handleDashboardRequest(request: Request): Promise<Response
           sessions: sdkSessionManager.list(),
         });
 
+        let telemetryBusy = false;
+        const sendTelemetry = async () => {
+          if (telemetryBusy) return;
+          telemetryBusy = true;
+          try {
+            send("telemetry.updated", await getDashboardTelemetry());
+          } finally {
+            telemetryBusy = false;
+          }
+        };
+        void sendTelemetry();
+
         const unsubscribe = subscribeDashboardEvents((event) => {
           send(event.type, event.data);
         });
+        const telemetryTimer = setInterval(() => void sendTelemetry(), 10_000);
         const heartbeat = setInterval(() => send("ping", { time: new Date().toISOString() }), 20_000);
         const onAbort = () => cleanup();
         cleanup = () => {
           unsubscribe();
+          clearInterval(telemetryTimer);
           clearInterval(heartbeat);
           request.signal.removeEventListener("abort", onAbort);
           try {
@@ -149,10 +194,28 @@ export async function handleDashboardRequest(request: Request): Promise<Response
     return Response.json({ logs: listToolCallLogs(limit) }, { headers: { "cache-control": "no-store" } });
   }
   if (url.pathname === "/api/dashboard") {
-    const [system, hardware, capabilities, tools] = await Promise.all([
-      getSystemInfo(), getHardwareInfo(), getCapabilities(), getDashboardTools()
-    ]);
-    return Response.json({ host: { system, hardware, capabilities }, tools, sessions: sdkSessionManager.list() });
+    const [system, tools] = await Promise.all([getSystemInfo(), getDashboardTools()]);
+    const toolRiskCounts = Object.fromEntries(
+      ["low", "medium", "high", "isolated"].map((risk) => [risk, tools.filter((tool) => tool.risk === risk).length]),
+    );
+    return Response.json({
+      host: {
+        system,
+        service: {
+          transport: config.transport,
+          httpHost: config.httpHost,
+          httpPort: config.httpPort,
+          httpPath: config.httpPath,
+        },
+      },
+      toolCount: tools.length,
+      toolRiskCounts,
+      sessions: sdkSessionManager.list(),
+      approvalCount: listApprovals().filter((approval) => approval.status === "pending").length,
+    }, { headers: { "cache-control": "no-store" } });
+  }
+  if (url.pathname === "/api/tools" && request.method === "GET") {
+    return Response.json({ tools: await getDashboardTools() }, { headers: { "cache-control": "no-store" } });
   }
   if (url.pathname === "/api/approvals") {
     return Response.json({ approvals: listApprovals() }, { headers: { "cache-control": "no-store" } });
