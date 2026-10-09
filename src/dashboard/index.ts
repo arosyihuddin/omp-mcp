@@ -28,21 +28,31 @@ import { getDashboardTools } from "./tools";
 import { setToolExposed } from "../control-plane/tools/exposure";
 import { terminalManager } from "../terminal";
 import { listToolCallLogs } from "../control-plane/logs";
+import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 
 const dashboardRoot = new URL("../../dashboard/dist/", import.meta.url);
 
-function workspacePath(input: string | null) {
-  const root = homedir();
-  const target = resolve(root, input ?? ".");
-  const rel = relative(root, target);
-  if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep))
-    throw new Error("Workspace path is outside the user home directory");
-  return { root, target, relativePath: rel || "." };
+
+async function getGitIgnoredNames(target: string, names: string[]) {
+  if (!names.length) return new Set<string>();
+  try {
+    const proc = Bun.spawn(["git", "-C", target, "check-ignore", "--no-index", "--stdin"], {
+      stdin: new Blob([names.join("\n") + "\n"]),
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    const output = await new Response(proc.stdout).text();
+    await proc.exited;
+    return new Set(output.split("\n").filter(Boolean));
+  } catch {
+    return new Set<string>();
+  }
 }
 
 async function getWorkspaceEntries(input: string | null) {
   const { target, relativePath } = workspacePath(input);
   const entries = await readdir(target, { withFileTypes: true });
+  const ignoredNames = await getGitIgnoredNames(target, entries.map((entry) => entry.name));
   const items = (await Promise.all(
     entries.map(async (entry) => {
       const fullPath = resolve(target, entry.name);
@@ -53,6 +63,7 @@ async function getWorkspaceEntries(input: string | null) {
           type: entry.isDirectory() ? "directory" : "file",
           size: entry.isFile() ? info.size : null,
           modified: info.mtime.toISOString(),
+          ignored: ignoredNames.has(entry.name),
         };
       } catch {
         // Broken/unreadable symlinks (for example ~/.steampath) must not
@@ -106,7 +117,7 @@ async function serveAsset(pathname: string): Promise<Response> {
     headers: {
       "content-type": contentType(requested),
       "cache-control":
-        requested === "index.html"
+        requested === "index.html" || /^(favicon|apple-touch)/.test(requested)
           ? "no-cache"
           : "public, max-age=31536000, immutable",
     },
@@ -148,6 +159,9 @@ export async function handleDashboardRequest(
   request: Request,
 ): Promise<Response> {
   const url = new URL(request.url);
+
+  const workspaceResponse = await handleWorkspaceApi(request, url);
+  if (workspaceResponse) return workspaceResponse;
 
   if (url.pathname === "/api/events" && request.method === "GET") {
     const encoder = new TextEncoder();
@@ -406,28 +420,6 @@ export async function handleDashboardRequest(
             error instanceof Error ? error.message : "Session action failed",
         },
         { status: 500 },
-      );
-    }
-  }
-  if (url.pathname === "/api/workspace" && request.method === "DELETE") {
-    try {
-      const requested = url.searchParams.get("path");
-      if (!requested || requested === ".")
-        throw new Error("A workspace item is required");
-      const { target } = workspacePath(requested);
-      const info = await stat(target);
-      await rm(target, { recursive: info.isDirectory(), force: false });
-      return Response.json(
-        { path: requested, deleted: true },
-        { headers: { "cache-control": "no-store" } },
-      );
-    } catch (error) {
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "Unable to delete workspace item",
-        },
-        { status: 400 },
       );
     }
   }

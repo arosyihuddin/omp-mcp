@@ -15,6 +15,13 @@
       "when": 1791430000000,
       "tag": "0001_add_tool_call_log_result",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791536765678,
+      "tag": "0002_workspace_profile_pins_favorites",
+      "breakpoints": true
     }
   ]
 }
