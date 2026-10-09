@@ -1,3 +1,5 @@
+<svelte:options runes={false} />
+
 <script lang="ts">
   import {
     ArrowLeft,
@@ -12,7 +14,6 @@
     List,
     MoreVertical,
     Pencil,
-    Play,
     Save,
     Search,
     Star,
@@ -378,7 +379,8 @@
   if (typeof window !== "undefined") loadPreferences();
 </script>
 
-<div class="h-full min-h-0">
+<div class="h-full min-h-0" aria-busy={loading}>
+  {#if error}<p class="mb-3 rounded-md border border-danger/25 bg-danger/5 px-3 py-2 text-sm text-danger" role="alert">{error}</p>{/if}
   {#if mode === "favorites"}
     <div class="mx-auto max-w-6xl">
       <div class="mb-5 flex items-center justify-between">
@@ -390,14 +392,14 @@
         </div>
         <button
           type="button"
-          class="rounded-lg bg-[#412d15] px-3 py-2 text-[10px] font-medium text-[#e1dcc9]"
+          class="rounded-lg bg-[#5e6ad2] px-3 py-2 text-[10px] font-medium text-[#f7f8f8]"
           on:click={() => navigatePage("files")}>Browse files</button
         >
       </div>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <button
           type="button"
-          class="flex items-center gap-3 rounded-xl border border-[#1f150c]/[.10] p-4 text-left hover:bg-[#412d15]/[.04] dark:border-[#e1dcc9]/[.08] dark:hover:bg-white/[.03]"
+          class="flex items-center gap-3 rounded-xl border border-[#1b1c1f]/[.10] p-4 text-left hover:bg-[#5e6ad2]/[.04] dark:border-[#f7f8f8]/[.08] dark:hover:bg-white/[.03]"
           on:click={() => openProject(".", "Home")}
         >
           <Home size={18} /><span
@@ -410,7 +412,7 @@
           <div class="group relative">
             <button
               type="button"
-              class="flex w-full items-center gap-3 rounded-xl border border-[#1f150c]/[.10] p-4 pr-10 text-left hover:bg-[#412d15]/[.04] dark:border-[#e1dcc9]/[.08] dark:hover:bg-white/[.03]"
+              class="flex w-full items-center gap-3 rounded-xl border border-[#1b1c1f]/[.10] p-4 pr-10 text-left hover:bg-[#5e6ad2]/[.04] dark:border-[#f7f8f8]/[.08] dark:hover:bg-white/[.03]"
               on:click={() => openFavorite(favorite)}
             >
               {#if (favorite.type ?? "directory") === "directory"}<FolderOpen
@@ -444,7 +446,7 @@
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {#each recents as recent}<button
                 type="button"
-                class="flex items-center gap-3 rounded-lg border border-[#1f150c]/[.08] p-3 text-left dark:border-[#e1dcc9]/[.07]"
+                class="flex items-center gap-3 rounded-lg border border-[#1b1c1f]/[.08] p-3 text-left dark:border-[#f7f8f8]/[.07]"
                 on:click={() => openFolder(recent.path, recent.name)}
                 ><Folder size={15} /><span class="min-w-0"
                   ><b class="block truncate text-[10px]">{recent.name}</b><small
@@ -460,7 +462,7 @@
   {:else if mode === "files"}
     <div class="grid h-full min-h-0 lg:grid-cols-[210px_1fr]">
       <aside
-        class="hidden min-h-0 overflow-y-auto border-r border-[#1f150c]/[.10] pr-3 lg:block dark:border-[#e1dcc9]/[.08]"
+        class="hidden min-h-0 overflow-y-auto border-r border-[#1b1c1f]/[.10] pr-3 lg:block dark:border-[#f7f8f8]/[.08]"
       >
         <div
           class="mb-2 px-2 text-[9px] font-semibold uppercase tracking-widest opacity-40"
@@ -469,13 +471,13 @@
         </div>
         <button
           type="button"
-          class="flex w-full gap-2 rounded-lg px-2 py-2 text-left text-[10px] hover:bg-[#412d15]/[.06]"
+          class="flex w-full gap-2 rounded-lg px-2 py-2 text-left text-[10px] hover:bg-[#5e6ad2]/[.06]"
           on:click={() => openFolder(".", "Home")}
           ><Home size={13} /> Home</button
         >
         {#each favorites as favorite}<button
             type="button"
-            class="flex w-full gap-2 rounded-lg px-2 py-2 text-left text-[10px] hover:bg-[#412d15]/[.06]"
+            class="flex w-full gap-2 rounded-lg px-2 py-2 text-left text-[10px] hover:bg-[#5e6ad2]/[.06]"
             on:click={() => openFavorite(favorite)}
             >{#if (favorite.type ?? "directory") === "directory"}<FolderOpen
                 size={13}
@@ -489,26 +491,26 @@
           <div class="flex h-8 min-w-0 flex-1 items-center gap-1">
             <button
               type="button"
-              class="h-7 w-7 shrink-0 rounded-md text-[#1f150c]/[.45] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] disabled:opacity-20 dark:text-[#e1dcc9]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]"
+              class="h-7 w-7 shrink-0 rounded-md text-[#1b1c1f]/[.45] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] disabled:opacity-20 dark:text-[#f7f8f8]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]"
               on:click={goBack}
               disabled={!historyBack.length}
               aria-label="Back"
               title="Back"><ArrowLeft size={14} /></button
             ><button
               type="button"
-              class="h-7 w-7 shrink-0 rounded-md text-[#1f150c]/[.45] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] disabled:opacity-20 dark:text-[#e1dcc9]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]"
+              class="h-7 w-7 shrink-0 rounded-md text-[#1b1c1f]/[.45] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] disabled:opacity-20 dark:text-[#f7f8f8]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]"
               on:click={goForward}
               disabled={!historyForward.length}
               aria-label="Forward"
               title="Forward"><ArrowRight size={14} /></button
-            ><div class="flex h-8 min-w-0 flex-1 items-center gap-1 rounded-lg border border-[#1f150c]/[.12] bg-white/[.16] px-2.5 dark:border-white/[.10] dark:bg-white/[.025]">
+            ><div class="flex h-8 min-w-0 flex-1 items-center gap-1 rounded-lg border border-[#1b1c1f]/[.12] bg-white/[.16] px-2.5 dark:border-white/[.10] dark:bg-white/[.025]">
             <button
               type="button"
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#1f150c]/[.72] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.70] dark:hover:bg-white/[.06]"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#1b1c1f]/[.72] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.70] dark:hover:bg-white/[.06]"
               on:click={() => open(".")} aria-label="Home" title="Home"><Home size={12} /></button>
             <button
               type="button"
-              class="h-7 shrink-0 rounded-md px-1.5 font-mono text-[10px] text-[#1f150c]/[.72] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.70] dark:hover:bg-white/[.06]"
+              class="h-7 shrink-0 rounded-md px-1.5 font-mono text-[10px] text-[#1b1c1f]/[.72] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.70] dark:hover:bg-white/[.06]"
               on:click={() => open(".")}>/home</button
             >{#if path !== "."}{#each path
                 .split("/")
@@ -516,7 +518,7 @@
                   >/</span
                 ><button
                   type="button"
-                  class="shrink-0 rounded-md px-1.5 py-1 font-mono text-[10px] text-[#1f150c]/[.72] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.70] dark:hover:bg-white/[.06]"
+                  class="shrink-0 rounded-md px-1.5 py-1 font-mono text-[10px] text-[#1b1c1f]/[.72] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.70] dark:hover:bg-white/[.06]"
                   on:click={() =>
                     open(
                       path
@@ -530,19 +532,19 @@
           </div>
           <div class="flex items-center gap-2">
             <label
-              class="flex h-8 w-full max-w-md items-center gap-2 rounded-lg border border-[#1f150c]/[.12] bg-white/[.16] px-2.5 transition focus-within:border-[#412d15]/[.28] focus-within:bg-white/[.24] dark:border-white/[.10] dark:bg-white/[.025] dark:focus-within:border-white/[.18] dark:focus-within:bg-white/[.04]"
+              class="flex h-8 w-full max-w-md items-center gap-2 rounded-lg border border-[#1b1c1f]/[.12] bg-white/[.16] px-2.5 transition focus-within:border-[#5e6ad2]/[.28] focus-within:bg-white/[.24] dark:border-white/[.10] dark:bg-white/[.025] dark:focus-within:border-white/[.18] dark:focus-within:bg-white/[.04]"
               ><Search
                 size={13}
-                class="shrink-0 text-[#1f150c]/[.42] dark:text-[#e1dcc9]/[.38]"
+                class="shrink-0 text-[#1b1c1f]/[.42] dark:text-[#f7f8f8]/[.38]"
               /><input
                 bind:value={fileSearch}
-                class="min-w-0 flex-1 bg-transparent text-[10px] text-[#1f150c]/[.82] outline-none placeholder:text-[#1f150c]/[.35] dark:text-[#e1dcc9]/[.82] dark:placeholder:text-[#e1dcc9]/[.30]"
+                class="min-w-0 flex-1 bg-transparent text-[10px] text-[#1b1c1f]/[.82] outline-none placeholder:text-[#1b1c1f]/[.35] dark:text-[#f7f8f8]/[.82] dark:placeholder:text-[#f7f8f8]/[.30]"
                 placeholder="Search in this folder"
                 aria-label="Search files"
               /></label
             >
             <div
-              class="flex shrink-0 items-center rounded-lg border border-[#1f150c]/[.12] bg-white/[.16] p-0.5 dark:border-white/[.10] dark:bg-white/[.025]"
+              class="flex shrink-0 items-center rounded-lg border border-[#1b1c1f]/[.12] bg-white/[.16] p-0.5 dark:border-white/[.10] dark:bg-white/[.025]"
               role="group"
               aria-label="File view"
             >
@@ -550,8 +552,8 @@
                 type="button"
                 class="flex h-7 w-7 items-center justify-center rounded-md transition {fileView ===
                 'list'
-                  ? 'bg-[#412d15] text-[#e1dcc9]'
-                  : 'text-[#1f150c]/[.45] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]'}"
+                  ? 'bg-[#5e6ad2] text-[#f7f8f8]'
+                  : 'text-[#1b1c1f]/[.45] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]'}"
                 on:click={() => setFileView("list")}
                 aria-label="List view"
                 title="List view"><List size={14} /></button
@@ -560,8 +562,8 @@
                 type="button"
                 class="flex h-7 w-7 items-center justify-center rounded-md transition {fileView ===
                 'grid'
-                  ? 'bg-[#412d15] text-[#e1dcc9]'
-                  : 'text-[#1f150c]/[.45] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]'}"
+                  ? 'bg-[#5e6ad2] text-[#f7f8f8]'
+                  : 'text-[#1b1c1f]/[.45] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]'}"
                 on:click={() => setFileView("grid")}
                 aria-label="Grid view"
                 title="Grid view"><LayoutGrid size={14} /></button>
@@ -569,7 +571,7 @@
             <div class="relative shrink-0">
               <button
                 type="button"
-                class="flex h-8 w-8 items-center justify-center rounded-lg text-[#1f150c]/[.45] transition hover:bg-[#412d15]/[.08] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]"
+                class="flex h-8 w-8 items-center justify-center rounded-lg text-[#1b1c1f]/[.45] transition hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.40] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]"
                 on:click={toggleViewMenu}
                 aria-label="View options"
                 aria-expanded={openViewMenu}
@@ -579,11 +581,11 @@
               </button>
               {#if openViewMenu}
                 <div
-                  class="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-lg border border-[#1f150c]/[.12] bg-[#e1dcc9] py-1 shadow-[0_12px_30px_rgba(0,0,0,.18)] dark:border-white/[.12] dark:bg-[#141416] dark:shadow-[0_12px_30px_rgba(0,0,0,.45)]"
+                  class="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-lg border border-[#1b1c1f]/[.12] bg-[#f7f8f8] py-1 shadow-[0_12px_30px_rgba(0,0,0,.18)] dark:border-white/[.12] dark:bg-[#141516] dark:shadow-[0_12px_30px_rgba(0,0,0,.45)]"
                 >
                   <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[10px] text-[#1f150c]/[.78] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.78] dark:hover:bg-white/[.06]"
+                    class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[10px] text-[#1b1c1f]/[.78] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.78] dark:hover:bg-white/[.06]"
                     on:click={() => setShowHiddenFiles(!showHiddenFiles)}
                   >
                     <span>{showHiddenFiles ? "Hide hidden files" : "Show hidden files"}</span>
@@ -597,10 +599,10 @@
         </div>
           {#if fileView === "list"}
             <div
-              class="overflow-hidden rounded-xl border border-[#1f150c]/[.10] bg-white/[.18] dark:border-white/[.10] dark:bg-white/[.02]"
+              class="overflow-hidden rounded-xl border border-[#1b1c1f]/[.10] bg-white/[.18] dark:border-white/[.10] dark:bg-white/[.02]"
             >
               <div
-                class="grid grid-cols-[1fr_100px_150px] gap-3 border-b border-[#1f150c]/[.08] px-4 py-2 text-[9px] font-medium uppercase tracking-wider text-[#1f150c]/[.45] dark:border-white/[.08] dark:text-[#e1dcc9]/[.42]"
+                class="grid grid-cols-[1fr_100px_150px] gap-3 border-b border-[#1b1c1f]/[.08] px-4 py-2 text-[9px] font-medium uppercase tracking-wider text-[#1b1c1f]/[.45] dark:border-white/[.08] dark:text-[#f7f8f8]/[.42]"
               >
                 <span>Name</span><span>Type / Size</span><span
                   class="text-right">Modified</span
@@ -609,11 +611,11 @@
               {#each visibleItems as item}
                 {@const itemPath = folderPath(item.name)}
                 <div
-                  class="group grid w-full grid-cols-[1fr_100px_150px] items-center gap-3 border-b border-[#1f150c]/[.07] px-4 py-2.5 last:border-0 hover:bg-[#412d15]/[.045] dark:border-white/[.07] dark:hover:bg-white/[.035]"
+                  class="group grid w-full grid-cols-[1fr_100px_150px] items-center gap-3 border-b border-[#1b1c1f]/[.07] px-4 py-2.5 last:border-0 hover:bg-[#5e6ad2]/[.045] dark:border-white/[.07] dark:hover:bg-white/[.035]"
                 >
                   <button
                     type="button"
-                    class="flex min-w-0 items-center gap-2 text-left text-[#1f150c]/[.82] dark:text-[#e1dcc9]/[.82]"
+                    class="flex min-w-0 items-center gap-2 text-left text-[#1b1c1f]/[.82] dark:text-[#f7f8f8]/[.82]"
                     on:click={() => openItem(item)}
                   >
                     {#if item.type === "directory"}<Folder
@@ -626,18 +628,18 @@
                     >
                   </button>
                   <span
-                    class="text-[9px] text-[#1f150c]/[.48] dark:text-[#e1dcc9]/[.42]"
+                    class="text-[9px] text-[#1b1c1f]/[.48] dark:text-[#f7f8f8]/[.42]"
                     >{item.type === "directory"
                       ? "Directory"
                       : formatSize(item.size)}</span
                   >
                   <div class="flex items-center justify-end gap-2">
                     <span
-                      class="text-[9px] text-[#1f150c]/[.48] dark:text-[#e1dcc9]/[.42]"
+                      class="text-[9px] text-[#1b1c1f]/[.48] dark:text-[#f7f8f8]/[.42]"
                       >{formatDate(item.modified)}</span
                     ><button
                       type="button"
-                      class="rounded p-1 text-[#1f150c]/[.35] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.35] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]"
+                      class="rounded p-1 text-[#1b1c1f]/[.35] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.35] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]"
                       on:click={() =>
                         toggleFavorite(itemPath, item.name, item.type)}
                       aria-label={isFavorite(itemPath)
@@ -651,7 +653,7 @@
                   </div>
                 </div>
               {:else}<div
-                  class="p-8 text-center text-[10px] text-[#1f150c]/[.42] dark:text-[#e1dcc9]/[.38]"
+                  class="p-8 text-center text-[10px] text-[#1b1c1f]/[.42] dark:text-[#f7f8f8]/[.38]"
                 >
                   {fileSearch ? "No matching files." : "This folder is empty."}
                 </div>{/each}
@@ -663,11 +665,11 @@
               {#each visibleItems as item}
                 {@const itemPath = folderPath(item.name)}
                 <div
-                  class="group relative min-w-0 rounded-xl border border-[#1f150c]/[.10] bg-white/[.18] p-4 transition hover:bg-[#412d15]/[.045] dark:border-white/[.10] dark:bg-white/[.02] dark:hover:bg-white/[.035]"
+                  class="group relative min-w-0 rounded-xl border border-[#1b1c1f]/[.10] bg-white/[.18] p-4 transition hover:bg-[#5e6ad2]/[.045] dark:border-white/[.10] dark:bg-white/[.02] dark:hover:bg-white/[.035]"
                 >
                   <button
                     type="button"
-                    class="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-md p-1 text-[#1f150c]/[.35] hover:bg-[#412d15]/[.08] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.35] dark:hover:bg-white/[.06] dark:hover:text-[#e1dcc9]"
+                    class="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-md p-1 text-[#1b1c1f]/[.35] hover:bg-[#5e6ad2]/[.08] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.35] dark:hover:bg-white/[.06] dark:hover:text-[#f7f8f8]"
                     on:click|stopPropagation={() => toggleItemMenu(itemPath)}
                     aria-label="Item actions"
                     aria-expanded={openItemMenu === itemPath}
@@ -676,11 +678,11 @@
                   </button>
                   {#if openItemMenu === itemPath}
                     <div
-                      class="absolute right-2 top-9 z-20 w-36 overflow-hidden rounded-lg border border-[#1f150c]/[.12] bg-[#e1dcc9] py-1 shadow-[0_12px_30px_rgba(0,0,0,.18)] dark:border-white/[.12] dark:bg-[#141416] dark:shadow-[0_12px_30px_rgba(0,0,0,.45)]"
+                      class="absolute right-2 top-9 z-20 w-36 overflow-hidden rounded-lg border border-[#1b1c1f]/[.12] bg-[#f7f8f8] py-1 shadow-[0_12px_30px_rgba(0,0,0,.18)] dark:border-white/[.12] dark:bg-[#141516] dark:shadow-[0_12px_30px_rgba(0,0,0,.45)]"
                     >
                       <button
                         type="button"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-[#1f150c]/[.78] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.78] dark:hover:bg-white/[.06]"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-[#1b1c1f]/[.78] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.78] dark:hover:bg-white/[.06]"
                         on:click={() => {
                           toggleFavorite(itemPath, item.name, item.type);
                           openItemMenu = "";
@@ -691,7 +693,7 @@
                       </button>
                       <button
                         type="button"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-[#1f150c]/[.78] hover:bg-[#412d15]/[.08] dark:text-[#e1dcc9]/[.78] dark:hover:bg-white/[.06]"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-[#1b1c1f]/[.78] hover:bg-[#5e6ad2]/[.08] dark:text-[#f7f8f8]/[.78] dark:hover:bg-white/[.06]"
                         on:click={() => editItem(item)}
                       >
                         <Pencil size={13} />
@@ -709,11 +711,11 @@
                   {/if}
                   <button
                     type="button"
-                    class="flex min-w-0 w-full items-center gap-3 pr-7 text-left text-[#1f150c]/[.82] dark:text-[#e1dcc9]/[.82]"
+                    class="flex min-w-0 w-full items-center gap-3 pr-7 text-left text-[#1b1c1f]/[.82] dark:text-[#f7f8f8]/[.82]"
                     on:click={() => openItem(item)}
                   >
                     <span
-                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#412d15]/[.07] text-[#1f150c]/[.62] dark:bg-white/[.05] dark:text-[#e1dcc9]/[.62] {item.name.startsWith('.') ? 'opacity-55' : ''}"
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5e6ad2]/[.07] text-[#1b1c1f]/[.62] dark:bg-white/[.05] dark:text-[#f7f8f8]/[.62] {item.name.startsWith('.') ? 'opacity-55' : ''}"
                       >{#if item.type === "directory"}<Folder
                           size={17}
                         />{:else if isPreviewable(item.name)}<Image
@@ -730,7 +732,7 @@
                   </button>
                 </div>
               {:else}<div
-                  class="col-span-full p-8 text-center text-[10px] text-[#1f150c]/[.42] dark:text-[#e1dcc9]/[.38]"
+                  class="col-span-full p-8 text-center text-[10px] text-[#1b1c1f]/[.42] dark:text-[#f7f8f8]/[.38]"
                 >
                   {fileSearch ? "No matching files." : "This folder is empty."}
                 </div>{/each}
@@ -762,7 +764,7 @@
           >
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg bg-[#412d15] px-3 py-2 text-[10px] text-[#e1dcc9] disabled:opacity-40"
+            class="flex items-center gap-1.5 rounded-lg bg-[#5e6ad2] px-3 py-2 text-[10px] text-[#f7f8f8] disabled:opacity-40"
             on:click={() => void saveEditor()}
             disabled={!editorDirty || editorSaving}
             ><Save size={13} /> {editorSaving ? "Saving…" : "Save"}</button
@@ -770,10 +772,10 @@
         </div>
       </div>
       <div
-        class="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-[#1f150c]/[.10] dark:border-[#e1dcc9]/[.08] lg:grid-cols-[220px_1fr]"
+        class="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-[#1b1c1f]/[.10] dark:border-[#f7f8f8]/[.08] lg:grid-cols-[220px_1fr]"
       >
         <aside
-          class="min-h-0 overflow-y-auto border-r p-3 dark:border-[#e1dcc9]/[.08]"
+          class="min-h-0 overflow-y-auto border-r p-3 dark:border-[#f7f8f8]/[.08]"
         >
           <div
             class="mb-2 px-2 text-[9px] font-semibold uppercase tracking-wider opacity-40"
@@ -782,7 +784,7 @@
           </div>
           {#each items as item}<button
               type="button"
-              class="flex w-full gap-2 rounded-md px-2 py-1.5 text-left text-[10px] hover:bg-[#412d15]/[.06]"
+              class="flex w-full gap-2 rounded-md px-2 py-1.5 text-left text-[10px] hover:bg-[#5e6ad2]/[.06]"
               on:click={() =>
                 item.type === "directory"
                   ? navigateTo(folderPath(item.name))
@@ -798,7 +800,7 @@
         </aside>
         <div class="min-w-0 min-h-0">
           <div
-            class="flex h-10 items-center justify-between border-b px-3 dark:border-[#e1dcc9]/[.08]"
+            class="flex h-10 items-center justify-between border-b px-3 dark:border-[#f7f8f8]/[.08]"
           >
             <span class="truncate text-[10px]"
               >{editorName || "No file selected"}{editorDirty ? " •" : ""}</span
@@ -838,29 +840,29 @@
         event.currentTarget === event.target && clearPreview()}
     >
       <div
-        class="flex h-[min(82vh,760px)] w-[min(92vw,1100px)] min-w-0 flex-col overflow-hidden rounded-xl border border-[#1f150c]/[.18] bg-[#e1dcc9] shadow-[0_24px_80px_rgba(0,0,0,.28)] dark:border-white/[.16] dark:bg-[#0b0b0d] dark:shadow-[0_24px_80px_rgba(0,0,0,.55)]"
+        class="flex h-[min(82vh,760px)] w-[min(92vw,1100px)] min-w-0 flex-col overflow-hidden rounded-xl border border-[#1b1c1f]/[.18] bg-[#f7f8f8] shadow-[0_24px_80px_rgba(0,0,0,.28)] dark:border-white/[.16] dark:bg-[#0b0b0d] dark:shadow-[0_24px_80px_rgba(0,0,0,.55)]"
       >
         <div
-          class="flex h-10 shrink-0 items-center justify-between border-b border-[#1f150c]/[.10] bg-[#d8d2bf] px-3 dark:border-white/[.09] dark:bg-[#111114]"
+          class="flex h-10 shrink-0 items-center justify-between border-b border-[#1b1c1f]/[.10] bg-[#f6f6f7] px-3 dark:border-white/[.09] dark:bg-[#141516]"
         >
           <div class="flex min-w-0 items-center gap-2">
             <span class="h-2.5 w-2.5 rounded-full bg-[#b35b4b]"></span><span
               class="h-2.5 w-2.5 rounded-full bg-[#b18a45]"
             ></span><span class="h-2.5 w-2.5 rounded-full bg-[#5f9467]"
             ></span><span
-              class="ml-2 truncate text-[11px] font-medium text-[#1f150c]/[.78] dark:text-[#e1dcc9]/[.78]"
+              class="ml-2 truncate text-[11px] font-medium text-[#1b1c1f]/[.78] dark:text-[#f7f8f8]/[.78]"
               >{previewName}</span
             >
           </div>
           <button
             type="button"
-            class="rounded-md p-1.5 text-[#1f150c]/[.48] hover:bg-[#1f150c]/[.07] hover:text-[#1f150c] dark:text-[#e1dcc9]/[.42] dark:hover:bg-white/[.07] dark:hover:text-[#e1dcc9]"
+            class="rounded-md p-1.5 text-[#1b1c1f]/[.48] hover:bg-[#1b1c1f]/[.07] hover:text-[#1b1c1f] dark:text-[#f7f8f8]/[.42] dark:hover:bg-white/[.07] dark:hover:text-[#f7f8f8]"
             on:click={clearPreview}
             aria-label="Close preview"><X size={15} /></button
           >
         </div>
         <div
-          class="min-h-0 flex-1 overflow-auto bg-[#eee9dc] dark:bg-[#08080a]"
+          class="min-h-0 flex-1 overflow-auto bg-[#f4f4f6] dark:bg-[#08090a]"
         >
           {#if previewKind === "image"}<div
               class="flex min-h-full items-center justify-center p-6"
@@ -889,10 +891,10 @@
               class="flex min-h-full items-center justify-center p-8"
             >
               <div
-                class="w-full max-w-xl rounded-xl border border-[#1f150c]/[.10] bg-[#e1dcc9] p-6 dark:border-white/[.10] dark:bg-[#111114]"
+                class="w-full max-w-xl rounded-xl border border-[#1b1c1f]/[.10] bg-[#f7f8f8] p-6 dark:border-white/[.10] dark:bg-[#141516]"
               >
                 <div
-                  class="mb-5 text-center text-[11px] font-medium text-[#1f150c]/[.72] dark:text-[#e1dcc9]/[.72]"
+                  class="mb-5 text-center text-[11px] font-medium text-[#1b1c1f]/[.72] dark:text-[#f7f8f8]/[.72]"
                 >
                   {previewName}
                 </div>
@@ -913,12 +915,12 @@
         event.target === event.currentTarget && closePicker()}
     >
       <div
-        class="flex h-[min(78vh,680px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#1f150c]/[.16] bg-[#e1dcc9] shadow-[0_24px_80px_rgba(0,0,0,.3)] dark:border-[#e1dcc9]/[.10] dark:bg-[#11100f]"
+        class="flex h-[min(78vh,680px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#1b1c1f]/[.16] bg-[#f7f8f8] shadow-[0_24px_80px_rgba(0,0,0,.3)] dark:border-[#f7f8f8]/[.10] dark:bg-[#11100f]"
         role="dialog"
         aria-label="Select file or folder"
       >
         <header
-          class="flex items-center justify-between border-b px-4 py-3 dark:border-[#e1dcc9]/[.08]"
+          class="flex items-center justify-between border-b px-4 py-3 dark:border-[#f7f8f8]/[.08]"
         >
           <div>
             <h3 class="text-[12px] font-semibold">
@@ -957,7 +959,7 @@
             </div>
           {:else}{#each pickerItems as item}<button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#412d15]/[.06]"
+                class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#5e6ad2]/[.06]"
                 on:click={() => void choosePicker(item)}
                 >{#if item.type === "directory"}<Folder size={15} />{:else}<File
                     size={15}
@@ -970,7 +972,7 @@
               >{/each}{/if}
         </div>
         <footer
-          class="flex justify-end gap-2 border-t px-4 py-3 dark:border-[#e1dcc9]/[.08]"
+          class="flex justify-end gap-2 border-t px-4 py-3 dark:border-[#f7f8f8]/[.08]"
         >
           <button
             type="button"
