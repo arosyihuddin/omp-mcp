@@ -4,50 +4,23 @@
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
   import Topbar from '$lib/components/layout/Topbar.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
+  import { profile } from '$lib/stores/profile.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import Overview from './pages/Overview.svelte';
   import Logs from './pages/Logs.svelte';
-  import Workspace from './pages/Workspace.svelte';
+  import { browser } from './features/workspace/browser.svelte';
+  import FavoritesView from './features/workspace/FavoritesView.svelte';
+  import FilesView from './features/workspace/FilesView.svelte';
+  import { prefs } from './features/workspace/preferences.svelte';
+  import EditorView from './features/workspace/EditorView.svelte';
   import TerminalPage from './pages/Terminal.svelte';
   import Tools from './pages/Tools.svelte';
   import Sessions from './pages/Sessions.svelte';
   import Approvals from './pages/Approvals.svelte';
 
-  type WorkspaceItem = {
-    name: string;
-    type: 'directory' | 'file';
-    size: number | null;
-    modified: string;
-  };
 
-  let workspacePath = $state('.');
-  let workspaceItems = $state<WorkspaceItem[]>([]);
-  let workspaceLoading = $state(false);
-  let workspaceError = $state('');
-
-  async function loadWorkspace(path = '.') {
-    workspaceLoading = true;
-    workspaceError = '';
-    try {
-      const response = await fetch('/api/workspace?path=' + encodeURIComponent(path), { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? 'Workspace unavailable');
-      workspacePath = data.path;
-      workspaceItems = data.items ?? [];
-    } catch (error) {
-      workspaceError = error instanceof Error ? error.message : 'Unable to read workspace';
-    } finally {
-      workspaceLoading = false;
-    }
-  }
-
-  function navigateWorkspace(mode: 'favorites' | 'files' | 'editor') {
-    router.navigate(('workspace-' + mode) as 'workspace-favorites' | 'workspace-files' | 'workspace-editor');
-    ui.mobileNavOpen = false;
-    if (mode === 'files') void loadWorkspace(workspacePath);
-  }
 
   onMount(() => {
     ui.init();
@@ -55,15 +28,17 @@
     theme.init();
     const stopEvents = dashboard.connect();
     void dashboard.refresh();
-    if (router.current === 'workspace-files') void loadWorkspace(workspacePath);
+    void prefs.init();
+    void profile.load();
     return () => {
       stopRouter();
       stopEvents();
     };
   });
 
+  // The Files view owns its listing (browser store); reload whenever it is shown.
   $effect(() => {
-    if (router.current === 'workspace-files') void loadWorkspace(workspacePath);
+    if (router.current === 'workspace-files') void browser.refresh();
   });
 </script>
 
@@ -92,15 +67,11 @@
     <TerminalPage />
   {:else if router.current === 'logs'}
     <Logs />
+  {:else if router.current === 'workspace-files'}
+    <FilesView />
+  {:else if router.current === 'workspace-favorites'}
+    <FavoritesView />
   {:else if router.inWorkspace}
-    <Workspace
-      mode={router.current === 'workspace-favorites' ? 'favorites' : router.current === 'workspace-editor' ? 'editor' : 'files'}
-      path={workspacePath}
-      items={workspaceItems}
-      loading={workspaceLoading}
-      error={workspaceError}
-      open={loadWorkspace}
-      navigatePage={navigateWorkspace}
-    />
+    <EditorView />
   {/if}
 </AppShell>

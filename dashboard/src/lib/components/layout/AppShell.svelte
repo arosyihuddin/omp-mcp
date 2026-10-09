@@ -25,7 +25,7 @@
         {#if fill}
           {@render children()}
         {:else}
-          <div class="mx-auto w-full max-w-[1200px] p-4 sm:p-6">{@render children()}</div>
+          <div class="w-full p-3">{@render children()}</div>
         {/if}
       </div>
     </main>

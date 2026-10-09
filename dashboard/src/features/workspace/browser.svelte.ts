@@ -1,6 +1,7 @@
 import { errorMessage, workspaceApi } from '$lib/api';
 import type { WorkspaceItem } from '$lib/types';
 import { joinPath } from './file-utils';
+import { prefs } from './preferences.svelte';
 
 /** Directory listing + back/forward history for the Files view. Survives route changes. */
 class WorkspaceBrowser {
@@ -65,13 +66,38 @@ class WorkspaceBrowser {
     return joinPath(this.path, name);
   }
 
-  async remove(item: WorkspaceItem) {
+  /** Run a mutation, then reload the listing and any stored paths. Returns an error message, or `null` on success. */
+  private async mutate<T>(fallback: string, run: () => Promise<T>): Promise<{ error: string | null; value?: T }> {
     try {
-      await workspaceApi.remove(this.child(item.name));
-      await this.refresh();
+      const value = await run();
+      await Promise.all([this.refresh(), prefs.reload()]);
+      return { error: null, value };
     } catch (error) {
-      this.error = errorMessage(error, 'Unable to delete item');
+      return { error: errorMessage(error, fallback) };
     }
+  }
+
+  async remove(item: WorkspaceItem) {
+    const { error } = await this.mutate('Unable to delete item', () => workspaceApi.remove(this.child(item.name)));
+    if (error) this.error = error;
+  }
+
+  async create(name: string, type: 'file' | 'directory') {
+    return this.mutate('Unable to create item', () => workspaceApi.create(this.child(name), type));
+  }
+
+  async rename(item: WorkspaceItem, newName: string) {
+    return this.mutate('Unable to rename item', () => workspaceApi.rename(this.child(item.name), newName));
+  }
+
+  async duplicate(item: WorkspaceItem) {
+    const result = await this.mutate('Unable to duplicate item', () => workspaceApi.duplicate(this.child(item.name)));
+    if (result.error) this.error = result.error;
+    return result;
+  }
+
+  async move(item: WorkspaceItem, destDir: string) {
+    return this.mutate('Unable to move item', () => workspaceApi.move(this.child(item.name), destDir));
   }
 }
 

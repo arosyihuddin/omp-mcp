@@ -66,6 +66,7 @@ export interface WorkspaceItem {
   type: 'directory' | 'file';
   size: number | null;
   modified: string;
+  ignored?: boolean;
 }
 
 export interface GpuDevice {
@@ -106,4 +107,47 @@ export interface DashboardSnapshot {
   toolRiskCounts?: Partial<Record<RiskLevel, number>>;
   sessions?: Session[];
   approvalCount?: number;
+}
+
+export interface Profile {
+  id: string;
+  displayName: string;
+  role: string | null;
+  avatarColor: string | null;
+}
+export interface PinEntry {
+  path: string;
+  name: string;
+  sortOrder: number;
+}
+export interface FavoriteEntry {
+  path: string;
+  name: string;
+  type: 'file' | 'directory';
+}
+export interface RecentEntry {
+  path: string;
+  name: string;
+  openedAt: string;
+}
+export interface WorkspaceStat {
+  path: string;
+  name: string;
+  type: 'file' | 'directory';
+  size: number | null;
+  created: string;
+  modified: string;
+  mode: string;
+  children?: number;
+}
+export interface WorkspaceState {
+  pins: PinEntry[];
+  favorites: FavoriteEntry[];
+  recents: RecentEntry[];
+  prefs: Record<string, string>;
+}
+export interface EditorSession {
+  root: string;
+  tabs: string[];
+  activePath: string | null;
 }

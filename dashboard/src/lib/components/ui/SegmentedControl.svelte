@@ -5,6 +5,8 @@
     value: T;
     label?: string;
     icon?: LucideIcon;
+    /** Extra classes for the icon (e.g. a semantic text color). */
+    iconClass?: string;
     /** Accessible name; required for icon-only options. */
     ariaLabel?: string;
   }
@@ -40,7 +42,7 @@
         !option.label && 'w-6 px-0',
       ]}
     >
-      {#if Icon}<Icon size={14} />{/if}
+      {#if Icon}<Icon size={14} class={option.iconClass} />{/if}
       {#if option.label}{option.label}{/if}
     </button>
   {/each}

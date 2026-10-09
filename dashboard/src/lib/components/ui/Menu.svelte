@@ -4,13 +4,15 @@
   interface Props {
     open?: boolean;
     align?: 'left' | 'right';
+    /** Open below (default) or above the trigger. */
+    placement?: 'bottom' | 'top';
     width?: string;
     /** Receives the current open state and a toggle function. */
     trigger: Snippet<[{ open: boolean; toggle: () => void }]>;
     children?: Snippet<[{ close: () => void }]>;
   }
 
-  let { open = $bindable(false), align = 'right', width = 'w-44', trigger, children }: Props = $props();
+  let { open = $bindable(false), align = 'right', placement = 'bottom', width = 'w-44', trigger, children }: Props = $props();
 
   let root = $state<HTMLDivElement>();
 
@@ -33,7 +35,8 @@
     <div
       role="menu"
       class={[
-        'absolute top-full z-30 mt-1 animate-pop-in rounded-lg border border-line-strong bg-surface-raised p-1 shadow-pop',
+        'absolute z-30 animate-pop-in rounded-lg border border-line-strong bg-surface-raised p-1 shadow-pop',
+        placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
         align === 'right' ? 'right-0' : 'left-0',
         width,
       ]}

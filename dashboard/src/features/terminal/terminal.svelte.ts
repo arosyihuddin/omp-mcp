@@ -1,5 +1,6 @@
 import { errorMessage, terminalsApi } from '$lib/api';
 import type { TerminalInfo } from '$lib/types';
+import { readString, storageKeys, writeString } from '$lib/utils/storage';
 
 export type SocketState = 'connecting' | 'connected' | 'closed';
 
@@ -42,7 +43,11 @@ export class TerminalController {
   async init() {
     try {
       this.terminals = await terminalsApi.list();
-      if (!this.activeId && this.terminals.length) this.activeId = this.terminals[0].id;
+      const savedActiveId = readString(storageKeys.terminalActiveId);
+      this.activeId = this.terminals.some((item) => item.id === savedActiveId)
+        ? savedActiveId!
+        : (this.terminals[0]?.id ?? '');
+      writeString(storageKeys.terminalActiveId, this.activeId);
     } catch (error) {
       this.error = errorMessage(error, 'Unable to load terminals');
     } finally {
@@ -58,6 +63,7 @@ export class TerminalController {
       const terminal = await terminalsApi.create();
       this.terminals = [terminal, ...this.terminals];
       this.activeId = terminal.id;
+      writeString(storageKeys.terminalActiveId, terminal.id);
       this.connect(terminal.id);
     } catch (error) {
       this.error = errorMessage(error, 'Unable to create terminal');
@@ -72,6 +78,7 @@ export class TerminalController {
       this.terminals = this.terminals.filter((item) => item.id !== id);
       if (this.activeId !== id) return;
       this.activeId = this.terminals[0]?.id ?? '';
+      writeString(storageKeys.terminalActiveId, this.activeId);
       if (this.activeId) {
         this.view?.reset();
         this.connect(this.activeId);
@@ -87,6 +94,7 @@ export class TerminalController {
   open(id: string) {
     if (id === this.activeId && this.socketState !== 'closed') return;
     this.activeId = id;
+    writeString(storageKeys.terminalActiveId, id);
     this.view?.reset();
     this.connect(id);
   }

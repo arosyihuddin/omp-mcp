@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { Snippet } from 'svelte';
   import { X } from '@lucide/svelte';
   import IconButton from './IconButton.svelte';
@@ -14,9 +15,10 @@
     header?: boolean;
     footer?: Snippet;
     children?: Snippet;
+    autofocus?: boolean;
   }
 
-  let { open, title, description, onclose, width = 'max-w-2xl', header = true, footer, children }: Props = $props();
+  let { open, title, description, onclose, width = 'max-w-2xl', header = true, footer, children, autofocus = false }: Props = $props();
 
   let dialog = $state<HTMLDivElement>();
   let restoreTo: HTMLElement | null = null;
@@ -25,7 +27,10 @@
   $effect(() => {
     if (!open) return;
     restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog?.focus();
+    void tick().then(() => {
+      if (autofocus) dialog?.querySelector<HTMLInputElement>('input:not([disabled])')?.focus();
+      else dialog?.focus();
+    });
     return () => restoreTo?.focus();
   });
 
@@ -41,7 +46,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     role="presentation"
     onmousedown={(event) => event.target === event.currentTarget && onclose()}
   >
@@ -51,7 +56,7 @@
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      class={['flex max-h-[min(82vh,760px)] w-full animate-pop-in flex-col overflow-hidden rounded-xl border border-line-strong bg-surface-raised shadow-pop outline-none', width]}
+      class={['flex max-h-[min(82vh,760px)] w-full flex-col overflow-hidden rounded-xl border border-line-strong bg-surface-raised shadow-pop outline-none', width]}
     >
       {#if header}
         <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-3">

@@ -1,21 +1,27 @@
-import { fileURLToPath } from 'node:url';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { defineConfig } from 'vite';
+import { fileURLToPath } from "node:url";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { defineConfig, loadEnv } from "vite";
 
-const backend = process.env.OMP_MCP_BACKEND ?? 'http://127.0.0.1:48765';
+const envDir = fileURLToPath(new URL("..", import.meta.url));
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, envDir, "");
+  const backend = env.OMP_MCP_BACKEND ?? "http://127.0.0.1:48765";
 
 // https://vite.dev/config/
-export default defineConfig({
+return {
+  envDir,
   plugins: [svelte()],
   resolve: {
     alias: {
-      $lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
-      $features: fileURLToPath(new URL('./src/features', import.meta.url)),
+      $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
+      $features: fileURLToPath(new URL("./src/features", import.meta.url)),
     },
   },
   server: {
     proxy: {
-      '/api': { target: backend, changeOrigin: true, ws: true },
+      "/api": { target: backend, changeOrigin: true, ws: true },
     },
   },
+  };
 });

@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowRight, Check, Home, LayoutGrid, List, MoreVertical, type LucideIcon } from '@lucide/svelte';
-  import { IconButton, Menu, MenuItem, SearchInput, SegmentedControl } from '$lib/components/ui';
+  import { ArrowLeft, ArrowRight, Check, FilePlus, FolderPlus, Home, LayoutGrid, List, MoreVertical, Plus, type LucideIcon } from '@lucide/svelte';
+  import { Button, IconButton, Menu, MenuItem, SearchInput, SegmentedControl } from '$lib/components/ui';
   import { browser } from './browser.svelte';
   import { prefs, type FileView } from './preferences.svelte';
 
   interface Props {
     search?: string;
+    onnew: (type: 'file' | 'directory') => void;
   }
 
-  let { search = $bindable('') }: Props = $props();
+  let { search = $bindable(''), onnew }: Props = $props();
 
-  const viewOptions: { value: FileView; icon: LucideIcon; ariaLabel: string }[] = [
-    { value: 'list', icon: List, ariaLabel: 'List view' },
-    { value: 'grid', icon: LayoutGrid, ariaLabel: 'Grid view' },
+  const viewOptions: { value: FileView; icon: LucideIcon; iconClass: string; ariaLabel: string }[] = [
+    { value: 'list', icon: List, iconClass: 'text-accent-hover', ariaLabel: 'List view' },
+    { value: 'grid', icon: LayoutGrid, iconClass: 'text-accent-hover', ariaLabel: 'Grid view' },
   ];
 
   const segments = $derived(browser.path === '.' ? [] : browser.path.split('/').filter(Boolean));
@@ -43,6 +44,15 @@
   </div>
 
   <div class="flex items-center gap-2">
+    <Menu width="w-44">
+      {#snippet trigger({ toggle, open })}
+        <Button size="sm" aria-expanded={open} onclick={toggle}><Plus size={13} /> New</Button>
+      {/snippet}
+      {#snippet children({ close })}
+        <MenuItem onclick={() => { close(); onnew('file'); }}><FilePlus size={13} /> New file</MenuItem>
+        <MenuItem onclick={() => { close(); onnew('directory'); }}><FolderPlus size={13} /> New folder</MenuItem>
+      {/snippet}
+    </Menu>
     <SearchInput class="w-full sm:w-56" bind:value={search} placeholder="Search in folder" label="Search files" />
     <SegmentedControl label="File view" options={viewOptions} value={prefs.view} onchange={(view) => prefs.setView(view)} />
     <Menu width="w-48">

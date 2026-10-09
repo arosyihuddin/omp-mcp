@@ -1,13 +1,13 @@
 <script lang="ts">
   import { ChevronDown, Folder, PanelLeft } from '@lucide/svelte';
-  import StatusDot from '$lib/components/ui/StatusDot.svelte';
   import { mainNav, routes, workspaceNav } from '$lib/routes';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { router } from '$lib/stores/router.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import ProfileCard from './ProfileCard.svelte';
   import SidebarItem from './SidebarItem.svelte';
 
-  let workspaceOpen = $state(true);
+  let workspaceOpen = $state(false);
   const collapsed = $derived(ui.sidebarCollapsed);
 
   function onWorkspaceClick() {
@@ -112,15 +112,6 @@
   </nav>
 
   <div class="shrink-0 p-2">
-    <div
-      class={['flex items-center gap-2.5 rounded-md border border-line px-2.5 py-2', collapsed && 'md:justify-center md:border-transparent md:px-0']}
-      title={dashboard.connected ? 'MCP server connected' : 'MCP server offline'}
-    >
-      <StatusDot tone={dashboard.connected ? 'success' : 'muted'} pulse={dashboard.connected} />
-      <div class={['min-w-0', collapsed && 'md:hidden']}>
-        <div class="truncate text-sm font-medium text-fg-muted">{dashboard.connected ? 'MCP server connected' : 'MCP server offline'}</div>
-        <div class="truncate text-xs text-fg-faint">Streamable HTTP · local</div>
-      </div>
-    </div>
+    <ProfileCard {collapsed} />
   </div>
 </aside>
