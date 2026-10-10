@@ -30,8 +30,6 @@ import { terminalManager } from "../terminal";
 import { listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 
-const dashboardRoot = new URL("../../dashboard/dist/", import.meta.url);
-
 
 async function getGitIgnoredNames(target: string, names: string[]) {
   if (!names.length) return new Set<string>();
@@ -82,77 +80,56 @@ async function getWorkspaceEntries(input: string | null) {
   return { path: relativePath, items };
 }
 
-function contentType(path: string) {
-  if (path.endsWith(".html")) return "text/html; charset=utf-8";
-  if (path.endsWith(".js")) return "application/javascript; charset=utf-8";
-  if (path.endsWith(".css")) return "text/css; charset=utf-8";
-  if (path.endsWith(".svg")) return "image/svg+xml";
-  if (path.endsWith(".png")) return "image/png";
-  if (path.endsWith(".ico")) return "image/x-icon";
-  return "application/octet-stream";
-}
+let dashboardStaticCache: { at: number; os: unknown; disk: unknown; display: unknown; runtime: unknown; desktop: unknown; network: unknown } | null = null;
+let dashboardTelemetryCache: { at: number; promise: Promise<unknown> } | null = null;
 
-async function serveAsset(pathname: string): Promise<Response> {
-  const requested =
-    pathname === "/" || pathname === "/dashboard"
-      ? "index.html"
-      : pathname.replace(/^\/+/, "");
-  if (requested.includes(".."))
-    return new Response("Bad Request", { status: 400 });
-
-  const file = Bun.file(new URL(requested, dashboardRoot));
-  if (!(await file.exists())) {
-    const fallback = Bun.file(new URL("index.html", dashboardRoot));
-    if (await fallback.exists())
-      return new Response(fallback, {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    return new Response(
-      "Dashboard build not found. Run dashboard build first.",
-      { status: 404 },
-    );
+async function getDashboardTelemetry(): Promise<unknown> {
+  const now = Date.now();
+  if (dashboardTelemetryCache && now - dashboardTelemetryCache.at < 1_900) {
+    return dashboardTelemetryCache.promise;
   }
 
-  return new Response(file, {
-    headers: {
-      "content-type": contentType(requested),
-      "cache-control":
-        requested === "index.html" || /^(favicon|apple-touch)/.test(requested)
-          ? "no-cache"
-          : "public, max-age=31536000, immutable",
-    },
-  });
-}
+  const promise = (async () => {
+    if (!dashboardStaticCache || now - dashboardStaticCache.at >= 60_000) {
+      const [os, disk, display, runtime] = await Promise.all([
+        getOsInfo(),
+        getDiskInfo(),
+        getDisplayInfo(),
+        getRuntimeInfo(),
+      ]);
+      dashboardStaticCache = { at: Date.now(), os, disk, display, runtime, desktop: getDesktopInfo(), network: getNetworkInfo() };
+    }
 
-async function getDashboardTelemetry() {
-  const [os, cpu, memory, gpu, disk, display, runtime] = await Promise.all([
-    getOsInfo(),
-    getCpuInfo(),
-    getMemoryInfo(),
-    getGpuInfo(),
-    getDiskInfo(),
-    getDisplayInfo(),
-    getRuntimeInfo(),
-  ]);
-  return {
-    system: {
-      os,
-      cpu,
-      memory,
-      gpu,
-      disk,
-      desktop: getDesktopInfo(),
-      display,
-      runtime,
-      network: getNetworkInfo(),
-    },
-    service: {
-      transport: config.transport,
-      httpHost: config.httpHost,
-      httpPort: config.httpPort,
-      httpPath: config.httpPath,
-    },
-  };
+    const [gpu] = await Promise.all([getGpuInfo()]);
+    const cached = dashboardStaticCache!;
+    return {
+      system: {
+        os: cached.os,
+        cpu: getCpuInfo(),
+        memory: getMemoryInfo(),
+        gpu,
+        disk: cached.disk,
+        desktop: cached.desktop,
+        display: cached.display,
+        runtime: cached.runtime,
+        network: cached.network,
+      },
+      service: {
+        transport: config.transport,
+        httpHost: config.httpHost,
+        httpPort: config.httpPort,
+        httpPath: config.httpPath,
+      },
+    };
+  })();
+
+  dashboardTelemetryCache = { at: now, promise };
+  try {
+    return await promise;
+  } catch (error) {
+    if (dashboardTelemetryCache?.promise === promise) dashboardTelemetryCache = null;
+    throw error;
+  }
 }
 
 export async function handleDashboardRequest(
@@ -200,7 +177,7 @@ export async function handleDashboardRequest(
         const unsubscribe = subscribeDashboardEvents((event) => {
           send(event.type, event.data);
         });
-        const telemetryTimer = setInterval(() => void sendTelemetry(), 10_000);
+        const telemetryTimer = setInterval(() => void sendTelemetry(), 2_000);
         const heartbeat = setInterval(
           () => send("ping", { time: new Date().toISOString() }),
           20_000,
@@ -232,10 +209,20 @@ export async function handleDashboardRequest(
     });
   }
   if (url.pathname === "/api/terminals" && request.method === "GET") {
-    return Response.json(
-      { terminals: terminalManager.list() },
-      { headers: { "cache-control": "no-store" } },
-    );
+    const scopeParam = url.searchParams.get("scope");
+    const scope = scopeParam === "project" || scopeParam === "general" ? scopeParam : undefined;
+    const workspaceRoot = url.searchParams.get("workspaceRoot") ?? undefined;
+    try {
+      return Response.json(
+        { terminals: terminalManager.list(scope, workspaceRoot) },
+        { headers: { "cache-control": "no-store" } },
+      );
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Unable to list terminals" },
+        { status: 400 },
+      );
+    }
   }
 
   if (url.pathname === "/api/terminals" && request.method === "POST") {
@@ -243,9 +230,15 @@ export async function handleDashboardRequest(
       const body = (await request.json().catch(() => ({}))) as {
         cwd?: string;
         title?: string;
+        scope?: "general" | "project";
+        workspaceRoot?: string;
       };
+      const scope = body.scope === "project" ? "project" : "general";
+      if (scope === "project" && !body.workspaceRoot) {
+        throw new Error("Project terminal requires a workspace root");
+      }
       return Response.json(
-        { terminal: terminalManager.create(body.cwd, body.title) },
+        { terminal: terminalManager.create(body.cwd, body.title, scope, body.workspaceRoot) },
         { status: 201 },
       );
     } catch (error) {
@@ -525,8 +518,13 @@ export async function handleDashboardRequest(
       );
     }
   }
-  if (request.method !== "GET" && request.method !== "HEAD") {
+  if (url.pathname === "/" || url.pathname === "/dashboard") {
+    return Response.json({
+      service: "omp-mcp",
+      message: "The dashboard UI has moved to the standalone omp-control project.",
+      apiBase: "/api",
+    });
   }
 
-  return serveAsset(url.pathname);
+  return Response.json({ error: "Not found" }, { status: 404 });
 }

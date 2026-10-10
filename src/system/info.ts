@@ -2,6 +2,8 @@ import { readFile, statfs } from "node:fs/promises";
 import os from "node:os";
 
 type CommandResult = { ok: boolean; stdout: string; stderr: string };
+type CpuTimeSample = { idle: number; total: number }[];
+let previousCpuTimes: CpuTimeSample | undefined;
 
 async function command(commandName: string, args: string[] = []): Promise<CommandResult> {
   try {
@@ -81,10 +83,24 @@ async function getDiskInfo(path = process.platform === "win32" ? "C:\\\\" : "/")
   } catch { return { path, available: false }; }
 }
 
-function getCpuInfo() {
+ function getCpuInfo() {
   const cpus = os.cpus();
   const load = os.loadavg();
-  return { model: cpus[0]?.model ?? null, logical_cores: cpus.length, load_average: { "1m": load[0], "5m": load[1], "15m": load[2] } };
+  const totals = cpus.map((cpu) => {
+    const times = cpu.times;
+    const idle = times.idle;
+    const total = times.user + times.nice + times.sys + times.idle + times.irq;
+    return { idle, total };
+  });
+  const previous = previousCpuTimes;
+  previousCpuTimes = totals;
+  let usagePercent: number | null = null;
+  if (previous?.length === totals.length) {
+    const idleDelta = totals.reduce((sum, cpu, index) => sum + Math.max(0, cpu.idle - previous[index].idle), 0);
+    const totalDelta = totals.reduce((sum, cpu, index) => sum + Math.max(0, cpu.total - previous[index].total), 0);
+    if (totalDelta > 0) usagePercent = Number((Math.max(0, Math.min(100, (1 - idleDelta / totalDelta) * 100))).toFixed(1));
+  }
+  return { model: cpus[0]?.model ?? null, logical_cores: cpus.length, usage_percent: usagePercent, load_average: { "1m": load[0], "5m": load[1], "15m": load[2] } };
 }
 
 async function getGpuInfo() {

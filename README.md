@@ -11,6 +11,8 @@ The server supports both **Streamable HTTP** and **STDIO** transports. The defau
 
 ## Status
 
+The dashboard frontend is maintained separately in the standalone omp-control project. This repository retains the /api/* runtime endpoints consumed by that UI and no longer builds or serves the bundled frontend.
+
 MVP implementation. The server uses OMP's native SDK/runtime for agent sessions and native tools, with optional Collab integration for session collaboration links.
 
 ## Requirements

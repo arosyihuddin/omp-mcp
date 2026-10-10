@@ -3,11 +3,14 @@ import { homedir } from "node:os";
 import { resolve, relative, sep } from "node:path";
 
 export type TerminalStatus = "running" | "exited";
+export type TerminalScope = "general" | "project";
 
 export type TerminalInfo = {
   id: string;
   title: string;
   cwd: string;
+  scope: TerminalScope;
+  workspaceRoot?: string;
   status: TerminalStatus;
   createdAt: string;
   updatedAt: string;
@@ -53,8 +56,11 @@ function stripLeadingWhitespaceLine(text: string) {
 class TerminalManager {
   private terminals = new Map<string, TerminalRecord>();
 
-  list(): TerminalInfo[] {
+  list(scope?: TerminalScope, workspaceRoot?: string): TerminalInfo[] {
+    const normalizedRoot = workspaceRoot === undefined ? undefined : workspaceCwd(workspaceRoot);
     return [...this.terminals.values()]
+      .filter((terminal) => scope === undefined || terminal.scope === scope)
+      .filter((terminal) => normalizedRoot === undefined || terminal.workspaceRoot === normalizedRoot)
       .map(
         ({ process: _process, clients: _clients, output: _output, ...info }) =>
           info,
@@ -74,8 +80,15 @@ class TerminalManager {
     return info;
   }
 
-  create(cwd?: string, title?: string) {
+  create(cwd?: string, title?: string, scope: TerminalScope = "general", workspaceRoot?: string) {
     const target = workspaceCwd(cwd);
+    const root = scope === "project" ? workspaceCwd(workspaceRoot) : undefined;
+    if (scope === "project" && root) {
+      const rel = relative(root, target);
+      if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep)) {
+        throw new Error("Project terminal cwd must stay inside its workspace root");
+      }
+    }
     const id = randomUUID();
     const now = new Date().toISOString();
     const decoder = new TextDecoder();
@@ -126,6 +139,8 @@ class TerminalManager {
       id,
       title: title?.trim() || `Terminal ${this.terminals.size + 1}`,
       cwd: target,
+      scope,
+      ...(root ? { workspaceRoot: root } : {}),
       status: "running",
       createdAt: now,
       updatedAt: now,
