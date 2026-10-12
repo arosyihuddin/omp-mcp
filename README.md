@@ -1,6 +1,9 @@
-# OMP MCP Server
+# 🧩 OMP MCP Server
 
-Standalone MCP server that exposes [Oh My Pi (OMP)](https://github.com/oh-my-pi/oh-my-pi) as a backend for external MCP clients and agents.
+![Runtime](https://img.shields.io/badge/runtime-Bun-000000?logo=bun&logoColor=white) ![Protocol](https://img.shields.io/badge/protocol-MCP-5B6DCD) ![Transport](https://img.shields.io/badge/transport-HTTP%20%7C%20STDIO-0A7B83) ![License](https://img.shields.io/badge/license-private-lightgrey)
+
+> 🔌 Expose the native [Oh My Pi (OMP)](https://github.com/oh-my-pi/oh-my-pi) agent runtime and tools to MCP-compatible clients.
+
 
 It provides two capabilities:
 
@@ -9,22 +12,22 @@ It provides two capabilities:
 
 The server supports both **Streamable HTTP** and **STDIO** transports. The default configuration is Streamable HTTP, which is suitable for running the server as a long-lived systemd service. For browser automation through OMP's Browser Relay, the deployment can also run the Relay as a separate systemd service.
 
-## Status
+## 🧭 Status
 
 The dashboard frontend is maintained separately in the standalone omp-control project. This repository retains the /api/* runtime endpoints consumed by that UI and no longer builds or serves the bundled frontend.
 
-MVP implementation. The server uses OMP's native SDK/runtime for agent sessions and native tools, with optional Collab integration for session collaboration links.
+The server uses OMP's native SDK/runtime for agent sessions and native tools, with optional Collab integration for session collaboration links. Session metadata is persisted in the local SQLite control database; SDK transcript files are used to rehydrate sessions after restart when available.
 
-## Requirements
+## 📋 Requirements
 
 - Bun 1.4+
 - OMP 18.4.10+ (or a compatible version exposing the required SDK/runtime APIs)
 - An OMP-authenticated model environment
 - Linux for the recommended systemd deployment
 
-## Install
+## 🚀 Installation
 
-### Development
+### 🧪 Development
 
 ```bash
 bun install
@@ -113,7 +116,7 @@ sudo make purge
 
 Both removal commands are idempotent and verify that their managed resources were removed.
 
-## Configuration
+## ⚙️ Configuration
 
 Configuration is loaded from environment variables. Bun automatically loads `.env` files.
 
@@ -144,7 +147,7 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 
 `OMP_DEFAULT_CWD` is the default working directory used when an `omp_*` tool does not receive an explicit `cwd`. It is a convenience default, not a filesystem sandbox; callers can provide another working directory when needed.
 
-## Tools
+## 🛠️ Tools
 
 The server exposes two layers:
 
@@ -214,7 +217,7 @@ The exact native set follows the installed OMP version and its effective setting
 
 The response contains the managed session metadata and status.
 
-## Streamable HTTP
+## 🌐 Streamable HTTP
 
 The recommended server deployment uses MCP Streamable HTTP:
 
@@ -226,7 +229,7 @@ The endpoint is configured with `MCP_HTTP_HOST`, `MCP_HTTP_PORT`, and `MCP_HTTP_
 
 The server manages MCP HTTP sessions independently while sharing the underlying OMP runtime in the process.
 
-## Collab
+## 🤝 Collaboration (Collab)
 
 OMP sessions can optionally start a native `CollabHost` and expose browser collaboration links through `omp_collab`.
 
@@ -236,14 +239,14 @@ Collab availability depends on the OMP installation being authenticated and able
 
 Collab URLs should be treated as sensitive access links and should not be written to logs.
 
-## Development
+## 🧪 Development
 
 ```bash
 bun run typecheck
 bun test
 ```
 
-### Releases
+### 📦 Releases
 
 Releases use Semantic Versioning and Git tags. The `release` target validates the source, updates `package.json`, creates an annotated `vX.Y.Z` tag, and pushes the commit and tag to the remote.
 
@@ -253,7 +256,7 @@ make release VERSION=0.2.0
 
 Use PATCH for backward-compatible fixes, MINOR for backward-compatible features, and MAJOR for breaking changes. Release from a clean `main` branch.
 
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
 flowchart TD
@@ -274,9 +277,9 @@ flowchart TD
     R --> C[CollabHost]
 ```
 
-## Current limitations
+## ⚠️ Current limitations
 
-- MCP session metadata and OMP agent session metadata are stored in memory and are lost when the MCP server exits.
+- Session recovery depends on the persisted SDK transcript still being available and compatible with the installed OMP version.
 - The recommended HTTP deployment currently binds to `127.0.0.1`; expose it through a reverse proxy or other network boundary if remote clients are required.
 - HTTP authentication is not built into this MVP. Add authentication at the reverse-proxy/network layer before exposing the endpoint beyond a trusted local environment.
 - Collab availability depends on the OMP installation being authenticated and able to reach its configured relay.
