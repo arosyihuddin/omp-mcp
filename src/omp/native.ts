@@ -1,5 +1,6 @@
 import { createAgentSession, Settings } from "@oh-my-pi/pi-coding-agent";
 import { config } from "../lib/config";
+import { resolveWorkingDirectory } from "../lib/working-directory";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent";
 import type { AgentTool } from "@oh-my-pi/pi-agent-core";
 
@@ -40,7 +41,7 @@ export class NativeToolRuntime {
   private pending = new Map<string, Promise<AgentSession>>();
 
   async getSession(cwd = config.ompDefaultCwd): Promise<AgentSession> {
-    const key = cwd || config.ompDefaultCwd;
+    const key = await resolveWorkingDirectory(cwd || config.ompDefaultCwd);
     const existing = this.sessions.get(key);
     if (existing) return existing;
 

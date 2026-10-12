@@ -29,7 +29,7 @@ function getNativeToolDescription(tool: { name: string; description: string }) {
 export async function registerOmpTools(server: McpServer, manager: OmpSdkSessionManager) {
   registerExposedTool(server, "omp_run", {
     description: "Start an OMP coding-agent session. Optionally select a specific model.",
-    inputSchema: { task: z.string().min(1), cwd: z.string().min(1).optional(), model: z.string().min(1).optional() },
+    inputSchema: { task: z.string().min(1), cwd: z.string().min(1).optional().describe("Existing working directory; absolute paths are recommended, and relative paths are resolved from the home directory first."), model: z.string().min(1).optional() },
   }, async ({ task, cwd, model }) => {
     logger.info({ tool: "omp_run", cwd, model }, "Starting OMP session");
     try {

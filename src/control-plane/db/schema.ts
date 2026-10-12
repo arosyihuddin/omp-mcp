@@ -83,3 +83,18 @@ export type ToolConfig = typeof toolConfigs.$inferSelect;
 export type NewToolConfig = typeof toolConfigs.$inferInsert;
 export type ToolCallLog = typeof toolCallLogs.$inferSelect;
 export type NewToolCallLog = typeof toolCallLogs.$inferInsert;
+export const ompSessions = sqliteTable(
+  "omp_sessions",
+  {
+    sessionId: text("session_id").primaryKey(),
+    cwd: text("cwd").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    data: text("data").notNull(),
+  },
+  (table) => [
+    index("idx_omp_sessions_cwd_updated_at").on(table.cwd, table.updatedAt),
+    index("idx_omp_sessions_updated_at").on(table.updatedAt),
+  ],
+);

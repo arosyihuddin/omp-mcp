@@ -11,6 +11,19 @@ export interface CollabInfo {
   instanceId?: string;
 }
 
+export interface OmpChatMessage {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  createdAt: string;
+  toolName?: string;
+  toolCallId?: string;
+  arguments?: string;
+  result?: string;
+  status?: "running" | "completed" | "failed";
+  isError?: boolean;
+}
+
 export interface OmpSession {
   sessionId: string;
   task: string;
@@ -21,6 +34,9 @@ export interface OmpSession {
   updatedAt: string;
   collab?: CollabInfo;
   output: string[];
+  messages: OmpChatMessage[];
   result?: string;
   error?: string;
+  /** Internal SDK transcript path used to rehydrate the agent after RAM cleanup. */
+  sdkSessionFile?: string;
 }

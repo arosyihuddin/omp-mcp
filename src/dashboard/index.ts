@@ -29,6 +29,7 @@ import { setToolExposed } from "../control-plane/tools/exposure";
 import { terminalManager } from "../terminal";
 import { listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
+import { listOmpSettings, resetOmpSetting, updateOmpSetting } from "../omp/configuration";
 
 
 async function getGitIgnoredNames(target: string, names: string[]) {
@@ -139,6 +140,35 @@ export async function handleDashboardRequest(
 
   const workspaceResponse = await handleWorkspaceApi(request, url);
   if (workspaceResponse) return workspaceResponse;
+  if (url.pathname === "/api/omp/config" && request.method === "GET") {
+    try {
+      return Response.json(await listOmpSettings(), { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to load OMP configuration" }, { status: 500 });
+    }
+  }
+  if (url.pathname === "/api/omp/config" && request.method === "PUT") {
+    try {
+      const body = await request.json() as { id?: unknown; value?: unknown };
+      if (typeof body.id !== "string" || !body.id || !Object.hasOwn(body, "value")) {
+        return Response.json({ error: "Setting id and value are required" }, { status: 400 });
+      }
+      const setting = await updateOmpSetting(body.id, body.value);
+      return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to save OMP setting" }, { status: 400 });
+    }
+  }
+  if (url.pathname === "/api/omp/config/reset" && request.method === "POST") {
+    try {
+      const body = await request.json() as { id?: unknown };
+      if (typeof body.id !== "string" || !body.id) return Response.json({ error: "Setting id is required" }, { status: 400 });
+      const setting = await resetOmpSetting(body.id);
+      return Response.json({ setting }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to reset OMP setting" }, { status: 400 });
+    }
+  }
 
   if (url.pathname === "/api/events" && request.method === "GET") {
     const encoder = new TextEncoder();
@@ -376,17 +406,41 @@ export async function handleDashboardRequest(
       { headers: { "cache-control": "no-store" } },
     );
   }
+  if (url.pathname === "/api/sessions" && request.method === "POST") {
+    try {
+      const body = await request.json() as { task?: unknown; cwd?: unknown; model?: unknown };
+      const task = typeof body.task === "string" ? body.task.trim() : "";
+      const cwd = typeof body.cwd === "string" ? body.cwd.trim() : "";
+      const model = typeof body.model === "string" ? body.model.trim() : undefined;
+      if (!task) return Response.json({ error: "Task is required" }, { status: 400 });
+      if (!cwd) return Response.json({ error: "Working directory is required" }, { status: 400 });
+      if (task.length > 20000) return Response.json({ error: "Task is too long (max 20000 characters)" }, { status: 400 });
+      if (model && model.length > 160) return Response.json({ error: "Model name is too long" }, { status: 400 });
+      const session = await sdkSessionManager.start(task, cwd, model || undefined);
+      return Response.json({ session }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to create session" }, { status: 500 });
+    }
+  }
   if (url.pathname.startsWith("/api/sessions/") && request.method === "POST") {
     const parts = url.pathname.split("/");
     const sessionId = decodeURIComponent(parts[3] ?? "");
     const action = parts[4];
-    if (!sessionId || !["interrupt", "dispose"].includes(action)) {
+    if (!sessionId || !["interrupt", "dispose", "resume"].includes(action)) {
       return Response.json(
         { error: "Invalid session action" },
         { status: 400 },
       );
     }
     try {
+      if (action === "resume") {
+        const body = await request.json() as { task?: unknown };
+        const task = typeof body.task === "string" ? body.task.trim() : "";
+        if (!task) return Response.json({ error: "Additional instruction is required" }, { status: 400 });
+        if (task.length > 20000) return Response.json({ error: "Instruction is too long (max 20000 characters)" }, { status: 400 });
+        const session = await sdkSessionManager.resume(sessionId, task);
+        return Response.json({ session }, { headers: { "cache-control": "no-store" } });
+      }
       if (action === "interrupt") {
         const ok = await sdkSessionManager.interrupt(sessionId);
         if (!ok)
