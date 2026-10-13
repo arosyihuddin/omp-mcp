@@ -5,6 +5,8 @@ export const toolConfigs = sqliteTable(
   {
     toolName: text("tool_name").primaryKey(),
     exposed: integer("exposed", { mode: "boolean" }).notNull().default(true),
+    permissionOverride: text("permission_override"),
+    customRule: text("custom_rule"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -98,3 +100,10 @@ export const ompSessions = sqliteTable(
     index("idx_omp_sessions_updated_at").on(table.updatedAt),
   ],
 );
+
+export const toolPermissionGroups = sqliteTable("tool_permission_groups", {
+  section: text("section").primaryKey(),
+  permission: text("permission").notNull(),
+  customRule: text("custom_rule").notNull().default("approval"),
+  updatedAt: text("updated_at").notNull(),
+});

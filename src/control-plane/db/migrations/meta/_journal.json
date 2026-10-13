@@ -29,6 +29,20 @@
       "when": 1791648000000,
       "tag": "0003_omp_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791882000000,
+      "tag": "0004_tool_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791885600000,
+      "tag": "0005_custom_tool_permission_rules",
+      "breakpoints": true
     }
   ]
 }

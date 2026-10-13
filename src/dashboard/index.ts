@@ -26,10 +26,12 @@ import { sdkSessionManager } from "../omp/sdk-session";
 
 import { getDashboardTools } from "./tools";
 import { setToolExposed } from "../control-plane/tools/exposure";
+import { permissionModes, customRules, setSectionPermission, setToolPermission, resetSectionToolOverrides, getSectionPermissions, getSectionCustomRules, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "../control-plane/tools/permissions";
 import { terminalManager } from "../terminal";
 import { listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 import { listOmpSettings, resetOmpSetting, updateOmpSetting } from "../omp/configuration";
+import { handleTunnelApi } from "../tunnels/manager";
 
 
 async function getGitIgnoredNames(target: string, names: string[]) {
@@ -137,9 +139,19 @@ export async function handleDashboardRequest(
   request: Request,
 ): Promise<Response> {
   const url = new URL(request.url);
-
+  const tunnelResponse = await handleTunnelApi(request, url);
+  if (tunnelResponse) return tunnelResponse;
   const workspaceResponse = await handleWorkspaceApi(request, url);
+
   if (workspaceResponse) return workspaceResponse;
+  if (url.pathname === "/api/models" && request.method === "GET") {
+    try {
+      const cwd = url.searchParams.get("cwd")?.trim() || undefined;
+      return Response.json(await sdkSessionManager.listModels(cwd), { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to load OMP models" }, { status: 500 });
+    }
+  }
   if (url.pathname === "/api/omp/config" && request.method === "GET") {
     try {
       return Response.json(await listOmpSettings(), { headers: { "cache-control": "no-store" } });
@@ -291,33 +303,45 @@ export async function handleDashboardRequest(
       : Response.json({ error: "Unknown terminal" }, { status: 404 });
   }
 
+  const sectionPermissionMatch = url.pathname.match(/^\/api\/tools\/sections\/(read_only|edit_delete|other)\/permission$/);
+  if (sectionPermissionMatch && request.method === "PATCH") {
+    try {
+      const section = sectionPermissionMatch[1] as PermissionSection;
+      const body = await request.json() as { permission?: unknown; customRule?: unknown };
+      if (!permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
+      if (body.customRule !== undefined && !customRules.includes(body.customRule as CustomPermissionRule)) throw new Error("Invalid custom permission rule");
+      const tools = await getDashboardTools();
+      setSectionPermission(section, body.permission as PermissionMode, body.customRule as CustomPermissionRule | undefined);
+      // A section-level change applies to every tool in that section. Clear individual overrides
+      // so future calls inherit the new section policy; users can customize individual tools again.
+      resetSectionToolOverrides(section, tools);
+      return Response.json({ tools: await getDashboardTools(), sectionPermissions: getSectionPermissions(), sectionCustomRules: getSectionCustomRules() }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to update section permission" }, { status: 400 });
+    }
+  }
+
   const toolMatch = url.pathname.match(/^\/api\/tools\/(.+)$/);
   if (toolMatch && request.method === "PATCH") {
     try {
       const name = decodeURIComponent(toolMatch[1]);
-      const body = (await request.json()) as { exposed?: unknown };
-      if (typeof body.exposed !== "boolean")
-        throw new Error("exposed must be a boolean");
-      setToolExposed(name, body.exposed);
-      const tool = (await getDashboardTools()).find(
-        (item) => item.name === name,
-      );
-      if (!tool)
-        return Response.json({ error: "Unknown tool" }, { status: 404 });
-      return Response.json(
-        { tool },
-        { headers: { "cache-control": "no-store" } },
-      );
+      const currentTools = await getDashboardTools();
+      if (!currentTools.some((item) => item.name === name)) return Response.json({ error: "Unknown tool" }, { status: 404 });
+      const body = await request.json() as { exposed?: unknown; permission?: unknown; customRule?: unknown };
+      if (body.exposed !== undefined) {
+        if (typeof body.exposed !== "boolean") throw new Error("exposed must be a boolean");
+        setToolExposed(name, body.exposed);
+      }
+      if (body.permission !== undefined || body.customRule !== undefined) {
+        if (body.permission !== undefined && body.permission !== null && !permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
+        if (body.customRule !== undefined && !customRules.includes(body.customRule as CustomPermissionRule)) throw new Error("Invalid custom permission rule");
+        setToolPermission(name, body.permission as PermissionMode | null, body.customRule as CustomPermissionRule | undefined);
+      }
+      if (body.exposed === undefined && body.permission === undefined && body.customRule === undefined) throw new Error("No tool setting provided");
+      const tool = (await getDashboardTools()).find((item) => item.name === name);
+      return Response.json({ tool }, { headers: { "cache-control": "no-store" } });
     } catch (error) {
-      return Response.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unable to update tool exposure",
-        },
-        { status: 400 },
-      );
+      return Response.json({ error: error instanceof Error ? error.message : "Unable to update tool settings" }, { status: 400 });
     }
   }
   if (url.pathname === "/api/logs" && request.method === "GET") {

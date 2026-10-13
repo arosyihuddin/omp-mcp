@@ -4,10 +4,12 @@ import { registerComputerTools } from "./computer";
 import { registerFilesystemTools } from "./filesystem";
 import { registerOmpTools } from "./omp";
 import { registerSystemTools } from "./system";
+import { registerTunnelTools } from "./tunnels";
 
 export async function registerTools(server: McpServer, manager: OmpSdkSessionManager) {
   registerSystemTools(server);
   registerComputerTools(server);
   registerFilesystemTools(server);
   await registerOmpTools(server, manager);
+  registerTunnelTools(server);
 }

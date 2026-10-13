@@ -2,22 +2,10 @@ import { registerExposedTool } from "./register";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { takeScreenshot, listWindows, activeWindow, focusWindow, closeWindow, moveWindow, listApps, mouseMove, mouseClick, mouseDrag, mouseScroll, keyPress, typeText } from "../../computer";
-import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorMessage, errorResult, result } from "./shared";
 
 const input = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false } as const;
 const screenshotOutput = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
-
-type ApprovalContext = {
-  signal: AbortSignal;
-  sessionId?: string;
-  requestId: string | number;
-};
-
-async function requireApproval(tool: string, args: Record<string, unknown>, extra: ApprovalContext, risk: "medium" | "high") {
-  const decision = await requestApproval({ tool, args, risk, sessionId: extra.sessionId, requestId: extra.requestId, signal: extra.signal });
-  if (!decision.approved) throw new Error(getApprovalDecisionMessage(decision.status));
-}
 
 export function registerComputerTools(server: McpServer) {
   registerExposedTool(server, "window_list", {
@@ -40,14 +28,14 @@ export function registerComputerTools(server: McpServer) {
     description: "Focus a desktop window by its window id.",
     inputSchema: { id: z.string().min(1) }, annotations: input,
   }, async ({ id }, extra) => {
-    try { await requireApproval("window_focus", { id }, extra, "medium"); await focusWindow(id); return result({ ok: true, action: "window_focus", id }); }
+    try { await focusWindow(id); return result({ ok: true, action: "window_focus", id }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
   registerExposedTool(server, "window_close", {
     description: "Close a desktop window by its window id.",
     inputSchema: { id: z.string().min(1) }, annotations: input,
   }, async ({ id }, extra) => {
-    try { await requireApproval("window_close", { id }, extra, "medium"); await closeWindow(id); return result({ ok: true, action: "window_close", id }); }
+    try { await closeWindow(id); return result({ ok: true, action: "window_close", id }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -55,7 +43,7 @@ export function registerComputerTools(server: McpServer) {
     description: "Move a desktop window to a workspace by its window id.",
     inputSchema: { id: z.string().min(1), workspace: z.string().min(1) }, annotations: input,
   }, async ({ id, workspace }, extra) => {
-    try { await requireApproval("window_move", { id, workspace }, extra, "medium"); await moveWindow(id, workspace); return result({ ok: true, action: "window_move", id, workspace }); }
+    try { await moveWindow(id, workspace); return result({ ok: true, action: "window_move", id, workspace }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -75,7 +63,7 @@ export function registerComputerTools(server: McpServer) {
     description: "Move the mouse pointer to absolute screen coordinates.",
     inputSchema: { x: z.number(), y: z.number() }, annotations: { ...input, idempotentHint: true },
   }, async ({ x, y }, extra) => {
-    try { await requireApproval("mouse_move", { x, y }, extra, "medium"); await mouseMove(x, y); return result({ ok: true, action: "mouse_move", x, y }); }
+    try { await mouseMove(x, y); return result({ ok: true, action: "mouse_move", x, y }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -86,7 +74,7 @@ export function registerComputerTools(server: McpServer) {
       clicks: z.number().int().min(1).max(10).optional().default(1),
     }, annotations: input,
   }, async ({ button, clicks }, extra) => {
-    try { await requireApproval("mouse_click", { button, clicks }, extra, "high"); await mouseClick(button, clicks); return result({ ok: true, action: "mouse_click", button, clicks }); }
+    try { await mouseClick(button, clicks); return result({ ok: true, action: "mouse_click", button, clicks }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -95,7 +83,7 @@ export function registerComputerTools(server: McpServer) {
     inputSchema: { from_x: z.number(), from_y: z.number(), to_x: z.number(), to_y: z.number() },
     annotations: input,
   }, async ({ from_x, from_y, to_x, to_y }, extra) => {
-    try { await requireApproval("mouse_drag", { from_x, from_y, to_x, to_y }, extra, "high"); await mouseDrag(from_x, from_y, to_x, to_y); return result({ ok: true, action: "mouse_drag", from_x, from_y, to_x, to_y }); }
+    try { await mouseDrag(from_x, from_y, to_x, to_y); return result({ ok: true, action: "mouse_drag", from_x, from_y, to_x, to_y }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -104,7 +92,7 @@ export function registerComputerTools(server: McpServer) {
     inputSchema: { dx: z.number().optional().default(0), dy: z.number().optional().default(0) },
     annotations: { ...input, idempotentHint: true },
   }, async ({ dx, dy }, extra) => {
-    try { await requireApproval("mouse_scroll", { dx, dy }, extra, "medium"); await mouseScroll(dx, dy); return result({ ok: true, action: "mouse_scroll", dx, dy }); }
+    try { await mouseScroll(dx, dy); return result({ ok: true, action: "mouse_scroll", dx, dy }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -112,7 +100,7 @@ export function registerComputerTools(server: McpServer) {
     description: "Press and release a keyboard key, or a key combination such as Ctrl+C.",
     inputSchema: { keys: z.array(z.string().min(1)).min(1).max(10) }, annotations: input,
   }, async ({ keys }, extra) => {
-    try { await requireApproval("keyboard_press", { keys }, extra, "high"); await keyPress(keys); return result({ ok: true, action: "keyboard_press", keys }); }
+    try { await keyPress(keys); return result({ ok: true, action: "keyboard_press", keys }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -120,7 +108,7 @@ export function registerComputerTools(server: McpServer) {
     description: "Press a keyboard shortcut using the supplied modifier/key sequence.",
     inputSchema: { keys: z.array(z.string().min(1)).min(2).max(10) }, annotations: input,
   }, async ({ keys }, extra) => {
-    try { await requireApproval("keyboard_hotkey", { keys }, extra, "high"); await keyPress(keys); return result({ ok: true, action: "keyboard_hotkey", keys }); }
+    try { await keyPress(keys); return result({ ok: true, action: "keyboard_hotkey", keys }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 
@@ -128,7 +116,7 @@ export function registerComputerTools(server: McpServer) {
     description: "Type literal text into the currently focused application.",
     inputSchema: { text: z.string().max(10000) }, annotations: input,
   }, async ({ text }, extra) => {
-    try { await requireApproval("keyboard_type", { text }, extra, "high"); await typeText(text); return result({ ok: true, action: "keyboard_type", length: text.length }); }
+    try { await typeText(text); return result({ ok: true, action: "keyboard_type", length: text.length }); }
     catch (error) { return errorResult(errorMessage(error)); }
   });
 

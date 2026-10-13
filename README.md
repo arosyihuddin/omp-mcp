@@ -134,8 +134,11 @@ MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=3000
 MCP_HTTP_PATH=/mcp
 
+# Required when using HTTP (`http` or `both`): shared Bearer token for all OMP-MCP HTTP endpoints.
+# Generate a strong secret with `openssl rand -hex 32` and set the same value as the OMP Control instance credential.
+OMP_API_TOKEN=
+
 # OMP
-OMP_DEFAULT_MODEL=onedoor/combo-deepseek-v4-flash
 OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 ```
 
@@ -146,6 +149,12 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 - `both` — runs both transports in the same process.
 
 `OMP_DEFAULT_CWD` is the default working directory used when an `omp_*` tool does not receive an explicit `cwd`. It is a convenience default, not a filesystem sandbox; callers can provide another working directory when needed.
+
+### Cloudflare Tunnel management
+
+OMP-MCP manages Cloudflare Quick Tunnel processes on the OMP-MCP host. Install `cloudflared` on that host. Tunnel endpoints use the same global `OMP_API_TOKEN` Bearer authentication as the rest of the HTTP API; there is no separate tunnel token. Tunnel targets are restricted to loopback HTTP(S) URLs.
+
+The MCP tools `tunnel_list`, `tunnel_status`, `tunnel_start`, and `tunnel_stop` are also exposed through OMP-MCP's tool permission system.
 
 ## 🛠️ Tools
 
@@ -227,6 +236,8 @@ http://127.0.0.1:3000/mcp
 
 The endpoint is configured with `MCP_HTTP_HOST`, `MCP_HTTP_PORT`, and `MCP_HTTP_PATH`.
 
+Every HTTP request must include `Authorization: Bearer <OMP_API_TOKEN>`. This applies to MCP initialization and subsequent session requests, all `/api/*` endpoints, and terminal WebSocket upgrades. OMP Control forwards the selected instance credential as the Bearer token.
+
 The server manages MCP HTTP sessions independently while sharing the underlying OMP runtime in the process.
 
 ## 🤝 Collaboration (Collab)
@@ -281,5 +292,5 @@ flowchart TD
 
 - Session recovery depends on the persisted SDK transcript still being available and compatible with the installed OMP version.
 - The recommended HTTP deployment currently binds to `127.0.0.1`; expose it through a reverse proxy or other network boundary if remote clients are required.
-- HTTP authentication is not built into this MVP. Add authentication at the reverse-proxy/network layer before exposing the endpoint beyond a trusted local environment.
+- HTTP mode requires `OMP_API_TOKEN`; all HTTP endpoints, including Streamable HTTP MCP, REST APIs, and terminal WebSocket upgrades, reject missing or invalid Bearer credentials. STDIO transport does not use HTTP authentication.
 - Collab availability depends on the OMP installation being authenticated and able to reach its configured relay.

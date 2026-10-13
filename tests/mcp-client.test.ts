@@ -12,7 +12,7 @@ async function waitForServer() {
   for (let i = 0; i < 100; i++) {
     try {
       const response = await fetch(endpoint, { method: "GET" });
-      if (response.status === 400) return;
+      if (response.status === 401) return;
     } catch {
       // Server is still starting.
     }
@@ -29,7 +29,9 @@ async function createClient() {
     version: "0.1.0",
   });
 
-  const transport = new StreamableHTTPClientTransport(new URL(endpoint));
+  const transport = new StreamableHTTPClientTransport(new URL(endpoint), {
+    requestInit: { headers: { authorization: "Bearer test-omp-token" } },
+  });
   await client.connect(transport);
 
   return { client, transport };
@@ -45,6 +47,7 @@ beforeAll(async () => {
       MCP_HTTP_HOST: "127.0.0.1",
       MCP_HTTP_PORT: String(port),
       MCP_HTTP_PATH: "/mcp",
+      OMP_API_TOKEN: "test-omp-token",
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -58,6 +61,19 @@ afterAll(() => {
 });
 
 describe("MCP Streamable HTTP integration", () => {
+  test("rejects missing and invalid Bearer tokens", async () => {
+    const missing = await fetch(endpoint, { method: "GET" });
+    expect(missing.status).toBe(401);
+    expect(missing.headers.get("www-authenticate")).toBe("Bearer");
+
+    const invalid = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: "Bearer wrong-token", "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", params: {}, id: 1 }),
+    });
+    expect(invalid.status).toBe(401);
+  });
+
   test("initializes and exposes OMP tools", async () => {
     const { client, transport } = await createClient();
 

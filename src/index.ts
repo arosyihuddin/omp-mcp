@@ -6,6 +6,8 @@ import { handleMcpHttpRequest, closeMcpHttpSessions } from "./app/http";
 import { handleDashboardRequest } from "./dashboard";
 import { terminalManager } from "./terminal";
 import { config } from "./lib/config";
+import { stopAllTunnels } from "./tunnels/manager";
+import { authorizeHttpRequest } from "./lib/http-auth";
 
 let server: Awaited<ReturnType<typeof createServer>> | undefined;
 let httpServer: ReturnType<typeof Bun.serve> | undefined;
@@ -27,6 +29,8 @@ if (config.transport === "http" || config.transport === "both") {
     hostname: config.httpHost,
     port: config.httpPort,
     fetch(request) {
+      const authFailure = authorizeHttpRequest(request);
+      if (authFailure) return authFailure;
       const url = new URL(request.url);
 
       if (url.pathname === config.httpPath) {
@@ -81,6 +85,7 @@ const shutdown = async (signal: string) => {
   logger.info({ signal }, "OMP MCP server shutting down");
 
   httpServer?.stop();
+  await stopAllTunnels();
   await closeMcpHttpSessions();
   await server?.close();
 };

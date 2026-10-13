@@ -4,6 +4,9 @@ import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ensureToolConfig, isToolExposed, subscribeToolExposure } from "../../control-plane/tools/exposure";
 import { recordToolCallLog } from "../../control-plane/logs";
+import { getToolPermission } from "../../control-plane/tools/permissions";
+import { getApprovalDecisionMessage, requestApproval } from "../../approval";
+import { errorResult } from "./shared";
 const handles = new WeakMap<McpServer, Map<string, RegisteredTool>>();
 const subscribedServers = new WeakSet<McpServer>();
 
@@ -48,6 +51,26 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
     let serializedArgs = "{}";
     try { serializedArgs = JSON.stringify(args); } catch { serializedArgs = String(args); }
     try {
+      const annotations = definition.annotations;
+      const risk = name.startsWith("omp_") ? "isolated" : annotations?.readOnlyHint ? "low" : (annotations?.openWorldHint || ["bash", "eval", "mouse_click", "mouse_drag", "keyboard_press", "keyboard_hotkey", "keyboard_type"].includes(name)) ? "high" : "medium";
+      const toolPermission = getToolPermission(name, risk);
+      const policy = toolPermission.permission;
+      if (policy === "blocked" || (policy === "custom" && toolPermission.customRule === "block_high_risk" && risk === "high")) {
+        return errorResult(`Tool '${name}' is blocked by the OMP-MCP permission policy.`);
+      }
+      const needsApproval = policy === "require_approval" || (policy === "custom" && (toolPermission.customRule === "approval" || (toolPermission.customRule === "high_risk" && risk === "high")));
+      if (needsApproval) {
+        const decision = await requestApproval({
+          tool: name,
+          args: (args && typeof args === "object" ? args : {}) as Record<string, unknown>,
+          risk: risk === "high" ? "high" : "medium",
+          sessionId: extra.sessionId,
+          requestId: extra.requestId,
+          signal: extra.signal,
+          reason: policy === "custom" ? `Custom permission rule: ${toolPermission.customRule}.` : "Tool permission policy requires approval before execution.",
+        });
+        if (!decision.approved) return errorResult(getApprovalDecisionMessage(decision.status));
+      }
       const response = hasArgs ? await genericHandler(args, extra) : await genericHandler(extra);
       let serializedResult = "";
       try { serializedResult = JSON.stringify(response.content); } catch { serializedResult = String(response.content); }

@@ -7,7 +7,6 @@ import { config } from "../../lib/config";
 import { logger } from "../../lib/logger";
 import { nativeRuntime } from "../../omp/native";
 import { jsonSchemaToZod } from "../json-schema";
-import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorMessage, errorResult, logValue, result } from "./shared";
 import { getNativeToolAnnotations } from "./native-metadata";
 
@@ -110,20 +109,6 @@ export async function registerOmpTools(server: McpServer, manager: OmpSdkSession
       const toolArgs = args as Record<string, unknown>;
       logger.debug({ tool: nativeTool.name, args: toolArgs }, "MCP tool call");
       try {
-        const annotations = getNativeToolAnnotations(nativeTool.name);
-        if (!annotations.readOnlyHint) {
-          const decision = await requestApproval({
-            tool: nativeTool.name,
-            args: toolArgs,
-            risk: annotations.openWorldHint ? "high" : "medium",
-            sessionId: extra.sessionId,
-            requestId: extra.requestId,
-            signal: extra.signal,
-            reason: annotations.openWorldHint ? "This operation can affect external systems." : "This operation can modify state on the host.",
-          });
-          if (!decision.approved) return errorResult(getApprovalDecisionMessage(decision.status));
-        }
-
         const value = await nativeTool.execute(toolArgs, extra.signal);
         logger.debug({ tool: nativeTool.name, durationMs: Math.round(performance.now() - startedAt), result: logValue(value) }, "MCP tool call completed");
         if (value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).content)) return value as CallToolResult;

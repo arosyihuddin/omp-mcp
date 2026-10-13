@@ -4,6 +4,7 @@ import { config } from "../../lib/config";
 import { getNativeToolAnnotations } from "../../mcp/tools/native-metadata";
 import { db } from "../db";
 import { toolConfigs } from "../db/schema";
+import { getToolPermission, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "./permissions";
 
 export type ToolRisk = "low" | "medium" | "high" | "isolated";
 
@@ -13,9 +14,15 @@ export type ToolCatalogEntry = {
   risk: ToolRisk;
   description: string;
   exposed: boolean;
+  section: PermissionSection;
+  permission: PermissionMode;
+  permissionOverride: PermissionMode | null;
+  sectionPermission: PermissionMode;
+  customRule: CustomPermissionRule;
+  sectionCustomRule: CustomPermissionRule;
 };
 
-const staticTools: Omit<ToolCatalogEntry, "exposed">[] = [
+const staticTools: Omit<ToolCatalogEntry, "exposed" | "section" | "permission" | "permissionOverride" | "sectionPermission" | "customRule" | "sectionCustomRule">[] = [
   ["system_info", "System", "low", "Get a structured snapshot of the host OS, CPU, memory, GPU, disk, desktop session, display, runtimes, and network interfaces. Read-only."],
   ["hardware_info", "System", "low", "Get CPU, memory, GPU, and root filesystem information. Read-only."],
   ["capabilities", "System", "low", "Detect host capabilities relevant to computer automation. Read-only."],
@@ -35,6 +42,10 @@ const staticTools: Omit<ToolCatalogEntry, "exposed">[] = [
   ["keyboard_hotkey", "Computer", "high", "Press a keyboard shortcut."],
   ["keyboard_type", "Computer", "high", "Type literal text into the currently focused application."],
   ["screenshot", "Computer", "low", "Capture the current desktop screen as a PNG."],
+  ["tunnel_list", "Cloudflare Tunnel", "low", "List managed Cloudflare Quick Tunnels and their recent logs."],
+  ["tunnel_status", "Cloudflare Tunnel", "low", "Get status and recent logs for a managed Cloudflare Quick Tunnel."],
+  ["tunnel_start", "Cloudflare Tunnel", "high", "Start a Cloudflare Quick Tunnel to a local HTTP(S) service."],
+  ["tunnel_stop", "Cloudflare Tunnel", "high", "Stop a managed Cloudflare Quick Tunnel."],
   ["omp_run", "OMP Agent", "isolated", "Start an OMP coding-agent session. Separate agent runtime."],
   ["omp_collab", "OMP Agent", "isolated", "Get the browser collaboration links for an OMP session."],
   ["omp_status", "OMP Agent", "isolated", "Get the current status and metadata for an OMP session."],
@@ -64,7 +75,7 @@ function ensureToolConfig(name: string) {
 }
 
 export async function getToolCatalog(): Promise<ToolCatalogEntry[]> {
-  const tools: Omit<ToolCatalogEntry, "exposed">[] = [...staticTools];
+  const tools: Omit<ToolCatalogEntry, "exposed" | "section" | "permission" | "permissionOverride" | "sectionPermission" | "customRule" | "sectionCustomRule">[] = [...staticTools];
   const nativeTools = await nativeRuntime.list(config.ompDefaultCwd);
 
   for (const tool of nativeTools) {
@@ -82,7 +93,7 @@ export async function getToolCatalog(): Promise<ToolCatalogEntry[]> {
   const rows = db.select().from(toolConfigs).all();
   const exposure = new Map(rows.map((row) => [row.toolName, row.exposed]));
 
-  return tools.map((tool) => ({ ...tool, exposed: exposure.get(tool.name) ?? true }));
+  return tools.map((tool) => ({ ...tool, exposed: exposure.get(tool.name) ?? true, ...getToolPermission(tool.name, tool.risk) }));
 }
 
 export function listToolConfigs() {
@@ -92,3 +103,4 @@ export function listToolConfigs() {
 }
 
 export { ensureToolConfig, isToolExposed, setToolExposed } from "./exposure";
+export { getSectionPermissions, getSectionCustomRules, permissionModes, customRules, setSectionPermission, setToolPermission, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "./permissions";

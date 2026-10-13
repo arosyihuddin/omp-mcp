@@ -116,10 +116,24 @@ export class OmpSdkSessionManager {
       instanceId: host.instanceId,
     };
   }
+  async listModels(cwd = config.ompDefaultCwd) {
+    const resolvedCwd = await resolveWorkingDirectory(cwd);
+    const settings = await Settings.loadReadOnly({ cwd: resolvedCwd });
+    const authStorage = await discoverAuthStorage();
+    const modelRegistry = new ModelRegistry(authStorage, undefined, { settings });
+    await modelRegistry.refresh();
+    const models = modelRegistry.getAvailable().map((model) => ({
+      id: `${model.provider}/${model.id}`,
+      name: model.name,
+      provider: model.provider,
+      contextWindow: model.contextWindow,
+    })).sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name));
+    return { models, defaultModel: settings.getModelRole("default") ?? null };
+  }
 
   async start(task: string, cwd: string, modelName?: string): Promise<OmpSession> {
     cwd = await resolveWorkingDirectory(cwd);
-    const selectedModel = modelName ?? config.ompDefaultModel;
+    const selectedModel = modelName?.trim() || undefined;
     const sessionId = createId();
     const session: OmpSession = {
       sessionId,
@@ -134,6 +148,7 @@ export class OmpSdkSessionManager {
     };
 
     const agent = await this.createAgent(session, SessionManager.create(cwd));
+    if (!session.model && agent.model) session.model = `${agent.model.provider}/${agent.model.id}`;
     session.sdkSessionFile = agent.sessionManager.getSessionFile();
     await agent.sessionManager.ensureOnDisk();
 
@@ -260,7 +275,7 @@ export class OmpSdkSessionManager {
   }
 
   private async createAgent(session: OmpSession, sessionManager: SessionManager): Promise<AgentSession> {
-    const selectedModel = session.model ?? config.ompDefaultModel;
+    const selectedModel = session.model;
     const settings = await Settings.loadReadOnly({ cwd: session.cwd });
     const sessionDefaults: Record<string, unknown> = {
       "astGrep.enabled": true,
