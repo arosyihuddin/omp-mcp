@@ -160,6 +160,8 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 
 Set `MCP_PUBLIC_URL` to the public HTTPS origin that serves OMP-MCP, plus `OMP_OAUTH_USERNAME` and `OMP_OAUTH_PASSWORD` to enable OAuth authorization-code flow with PKCE (S256). Configure these secrets in the service environment; do not commit them. OAuth access tokens are stored as SHA-256 hashes in the control-plane SQLite database, expire after one hour, and use rotating refresh tokens. Dynamic client registration is enabled for public clients.
 
+For systemd installations, configure these values in `/opt/omp-mcp/.env`, then restart OMP-MCP. `make install` / `make update` now append any missing OAuth variable names to an existing `.env` without overwriting current settings; fill in the values manually to enable OAuth. A blank value keeps OAuth disabled.
+
 The OAuth authorization server exposes `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. Remote clients should use the discovery metadata rather than hard-coding endpoint details.
 
 The hosted login page follows the OMP Control visual style and provides a dark/light theme toggle. It follows the operating-system theme by default and remembers a manual selection in the browser.

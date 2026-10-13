@@ -98,6 +98,13 @@ install:
 	cp -a src package.json bun.lock tsconfig.json README.md .env.example deploy $(INSTALL_DIR)/
 	install -m 0755 $(BUN) $(INSTALL_DIR)/bin/bun
 	@if [ ! -f $(INSTALL_DIR)/.env ]; then cp $(INSTALL_DIR)/.env.example $(INSTALL_DIR)/.env; fi
+	@if [ -f $(INSTALL_DIR)/.env ]; then \
+		for key in MCP_PUBLIC_URL OMP_OAUTH_USERNAME OMP_OAUTH_PASSWORD; do \
+			if ! grep -q "^$$key=" $(INSTALL_DIR)/.env; then \
+				printf '\n# Optional OAuth 2.0 setting; leave empty to keep OAuth disabled.\n%s=\n' "$$key" >> $(INSTALL_DIR)/.env; \
+			fi; \
+		done; \
+	fi
 	@if [ -n "$(SETUP_TRANSPORT)" ]; then \
 		sed -i 's|^MCP_TRANSPORT=.*|MCP_TRANSPORT=$(SETUP_TRANSPORT)|' $(INSTALL_DIR)/.env; \
 		sed -i 's|^MCP_HTTP_HOST=.*|MCP_HTTP_HOST=$(SETUP_HOST)|' $(INSTALL_DIR)/.env; \
