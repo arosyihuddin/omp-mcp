@@ -27,7 +27,7 @@ import { getDashboardTools } from "./tools";
 import { setToolExposed } from "../control-plane/tools/exposure";
 import { permissionModes, customRules, setSectionPermission, setToolPermission, resetSectionToolOverrides, getSectionPermissions, getSectionCustomRules, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "../control-plane/tools/permissions";
 import { terminalManager } from "../terminal";
-import { listToolCallLogs } from "../control-plane/logs";
+import { countToolCallsToday, listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 import { handleTunnelApi } from "../tunnels/manager";
 
@@ -161,6 +161,7 @@ export async function handleDashboardRequest(
 
         send("dashboard.snapshot", {
           approvals: listApprovals(),
+          toolCallsToday: countToolCallsToday(),
         });
 
         let telemetryBusy = false;
@@ -335,6 +336,7 @@ export async function handleDashboardRequest(
         },
         toolCount: tools.length,
         toolRiskCounts,
+        toolCallsToday: countToolCallsToday(),
         approvalCount: listApprovals().filter(
           (approval) => approval.status === "pending",
         ).length,

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt } from "drizzle-orm";
 import { db } from "../db";
 import { toolCallLogs, type NewToolCallLog, type ToolCallLog } from "../db/schema";
 import { emitDashboardEvent } from "../../dashboard/events";
@@ -18,4 +18,23 @@ export function recordToolCallLog(input: ToolCallLogInput): ToolCallLog {
 
 export function listToolCallLogs(limit = 100): ToolCallLog[] {
   return db.select().from(toolCallLogs).orderBy(desc(toolCallLogs.timestamp)).limit(Math.min(Math.max(limit, 1), 200)).all();
+}
+
+
+/** Count persisted tool calls for the current calendar day in Jakarta time (WIB). */
+export function countToolCallsToday(now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value);
+  // Jakarta uses UTC+07:00 year-round. Convert local midnight to UTC for ISO timestamp comparisons.
+  const start = new Date(Date.UTC(part("year"), part("month") - 1, part("day")) - 7 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const result = db.select({ total: count() }).from(toolCallLogs).where(
+    and(gte(toolCallLogs.timestamp, start.toISOString()), lt(toolCallLogs.timestamp, end.toISOString())),
+  ).get();
+  return result?.total ?? 0;
 }
