@@ -2,9 +2,6 @@ export type DashboardEventType =
   | "approval.created"
   | "approval.updated"
   | "approval.cleared"
-  | "session.created"
-  | "session.updated"
-  | "session.removed"
   | "tool_call.created";
 
 export type DashboardEvent = {

@@ -1,15 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { OmpSdkSessionManager } from "../../omp/sdk-session";
 import { registerComputerTools } from "./computer";
 import { registerFilesystemTools } from "./filesystem";
-import { registerOmpTools } from "./omp";
+import { registerNativeTools } from "./native";
 import { registerSystemTools } from "./system";
 import { registerTunnelTools } from "./tunnels";
 
-export async function registerTools(server: McpServer, manager: OmpSdkSessionManager) {
+export async function registerTools(server: McpServer) {
   registerSystemTools(server);
   registerComputerTools(server);
   registerFilesystemTools(server);
-  await registerOmpTools(server, manager);
+  await registerNativeTools(server);
   registerTunnelTools(server);
 }

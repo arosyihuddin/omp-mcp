@@ -46,14 +46,6 @@ const staticTools: Omit<ToolCatalogEntry, "exposed" | "section" | "permission" |
   ["tunnel_status", "Cloudflare Tunnel", "low", "Get status and recent logs for a managed Cloudflare Quick Tunnel."],
   ["tunnel_start", "Cloudflare Tunnel", "high", "Start a Cloudflare Quick Tunnel to a local HTTP(S) service."],
   ["tunnel_stop", "Cloudflare Tunnel", "high", "Stop a managed Cloudflare Quick Tunnel."],
-  ["omp_run", "OMP Agent", "isolated", "Start an OMP coding-agent session. Separate agent runtime."],
-  ["omp_collab", "OMP Agent", "isolated", "Get the browser collaboration links for an OMP session."],
-  ["omp_status", "OMP Agent", "isolated", "Get the current status and metadata for an OMP session."],
-  ["omp_result", "OMP Agent", "isolated", "Get the latest result and metadata for an OMP session."],
-  ["omp_resume", "OMP Agent", "isolated", "Resume an existing OMP session with an additional instruction."],
-  ["omp_interrupt", "OMP Agent", "isolated", "Interrupt a running OMP session."],
-  ["omp_dispose", "OMP Agent", "isolated", "Dispose an OMP session and remove it from the MCP server."],
-  ["omp_list", "OMP Agent", "isolated", "List OMP sessions managed by this MCP server."]
 ].map(([name, group, risk, description]) => ({ name, group, risk: risk as ToolRisk, description }));
 
 function riskFromAnnotations(annotations: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean }): ToolRisk {

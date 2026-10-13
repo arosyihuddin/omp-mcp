@@ -74,21 +74,13 @@ describe("MCP Streamable HTTP integration", () => {
     expect(invalid.status).toBe(401);
   });
 
-  test("initializes and exposes OMP tools", async () => {
+  test("initializes and exposes native tools", async () => {
     const { client, transport } = await createClient();
 
     try {
       const result = await client.listTools();
       const names = result.tools.map((tool) => tool.name);
 
-      expect(names).toContain("omp_run");
-      expect(names).toContain("omp_status");
-      expect(names).toContain("omp_result");
-      expect(names).toContain("omp_resume");
-      expect(names).toContain("omp_interrupt");
-      expect(names).toContain("omp_dispose");
-      expect(names).toContain("omp_list");
-      expect(names).toContain("omp_collab");
       expect(names).toContain("read");
       expect(names).toContain("bash");
       expect(names).toContain("write");
@@ -98,7 +90,7 @@ describe("MCP Streamable HTTP integration", () => {
     }
   }, 30_000);
 
-  test("executes a native OMP tool without an OMP agent", async () => {
+  test("executes a native tool over HTTP", async () => {
     const { client, transport } = await createClient();
 
     try {
@@ -115,79 +107,5 @@ describe("MCP Streamable HTTP integration", () => {
     }
   }, 30_000);
 
-  test("runs an OMP task through the MCP tool", async () => {
-    const { client, transport } = await createClient();
 
-    try {
-      const result = await client.callTool({
-        name: "omp_run",
-        arguments: {
-          task: "Respond with exactly: MCP_E2E_OK",
-          cwd: root,
-        },
-      });
-
-      expect(result.isError).not.toBe(true);
-      const content = result.content as Array<{ type: string; text?: string }> | undefined;
-      const text = content?.find((item) => item.type === "text");
-      expect(text?.type).toBe("text");
-      if (text?.type !== "text") throw new Error("MCP tool returned no text content");
-
-      const session = JSON.parse(text.text!) as {
-        sessionId: string;
-        status: string;
-      };
-
-      expect(session.sessionId).toMatch(/^sdk-/);
-      expect(["starting", "running", "completed"]).toContain(session.status);
-
-      let finalStatus = session.status;
-      for (let i = 0; i < 60 && finalStatus !== "completed" && finalStatus !== "failed"; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 250));
-
-        const statusResult = await client.callTool({
-          name: "omp_status",
-          arguments: { session_id: session.sessionId },
-        });
-
-        const statusContent = statusResult.content as Array<{ type: string; text?: string }> | undefined;
-        const statusText = statusContent?.find((item) => item.type === "text");
-        if (statusText?.type !== "text") throw new Error("omp_status returned no text content");
-
-        finalStatus = (JSON.parse(statusText.text!) as { status: string }).status;
-      }
-
-      expect(finalStatus).toBe("completed");
-
-      const listResponse = await client.callTool({
-        name: "omp_list",
-        arguments: { status: "all" },
-      });
-      const listContent = listResponse.content as Array<{ type: string; text?: string }> | undefined;
-      const listText = listContent?.find((item) => item.type === "text");
-      if (listText?.type !== "text") throw new Error("omp_list returned no text content");
-
-      const listPayload = JSON.parse(listText.text!) as {
-        sessions: Array<{ sessionId: string }>;
-      };
-      expect(listPayload.sessions.some((item) => item.sessionId === session.sessionId)).toBe(true);
-
-      const resultResponse = await client.callTool({
-        name: "omp_result",
-        arguments: { session_id: session.sessionId },
-      });
-      const resultContent = resultResponse.content as Array<{ type: string; text?: string }> | undefined;
-      const resultText = resultContent?.find((item) => item.type === "text");
-      if (resultText?.type !== "text") throw new Error("omp_result returned no text content");
-
-      const payload = JSON.parse(resultText.text!) as {
-        status: string;
-        result?: string;
-      };
-      expect(payload.status).toBe("completed");
-      expect(payload.result).toContain("MCP_E2E_OK");
-    } finally {
-      await transport.close();
-    }
-  }, 60_000);
 });

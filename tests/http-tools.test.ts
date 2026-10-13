@@ -8,17 +8,6 @@ const endpoint = `http://127.0.0.1:${port}/mcp`;
 
 let serverProcess: ReturnType<typeof Bun.spawn>;
 
-const sessionTools = [
-  "omp_run",
-  "omp_status",
-  "omp_result",
-  "omp_resume",
-  "omp_interrupt",
-  "omp_dispose",
-  "omp_list",
-  "omp_collab",
-] as const;
-
 const filesystemTools = ["fs_find", "fs_grep"] as const;
 
 const computerTools = [
@@ -39,6 +28,8 @@ const computerTools = [
 ] as const;
 
 const systemTools = ["system_info", "hardware_info", "capabilities"] as const;
+
+const tunnelTools = ["tunnel_list", "tunnel_status", "tunnel_start", "tunnel_stop"] as const;
 
 const nativeTools = [
   "read",
@@ -130,7 +121,7 @@ describe("MCP Streamable HTTP tool coverage", () => {
     try {
       const result = await client.listTools();
       const names = new Set(result.tools.map((tool) => tool.name));
-      const expected = [...sessionTools, ...filesystemTools, ...computerTools, ...systemTools, ...nativeTools];
+      const expected = [...filesystemTools, ...computerTools, ...systemTools, ...tunnelTools, ...nativeTools];
 
       expect(result.tools).toHaveLength(expected.length);
 
@@ -139,6 +130,10 @@ describe("MCP Streamable HTTP tool coverage", () => {
       }
 
       expect(names.size).toBe(expected.length);
+
+      for (const name of ["omp_run", "omp_collab", "omp_status", "omp_result", "omp_resume", "omp_interrupt", "omp_dispose", "omp_list"]) {
+        expect(names.has(name)).toBe(false);
+      }
     } finally {
       await transport.close();
     }
@@ -176,39 +171,7 @@ describe("MCP Streamable HTTP tool coverage", () => {
     }
   }, 30_000);
 
-  test("routes every session-management tool through HTTP", async () => {
-    const { client, transport } = await createClient();
 
-    try {
-      const invalidSession = "http-tool-coverage-invalid-session";
-
-      const cases: Array<[string, Record<string, unknown>]> = [
-        ["omp_status", { session_id: invalidSession }],
-        ["omp_result", { session_id: invalidSession }],
-        ["omp_resume", { session_id: invalidSession, task: "test" }],
-        ["omp_interrupt", { session_id: invalidSession }],
-        ["omp_dispose", { session_id: invalidSession }],
-        ["omp_collab", { session_id: invalidSession }],
-      ];
-
-      for (const [name, args] of cases) {
-        const response = await callTool(client, name, args);
-        expect(response.isError).toBe(true);
-      }
-
-      const listResponse = await callTool(client, "omp_list", { status: "all" });
-      expect(listResponse.isError).not.toBe(true);
-
-      const runResponse = await callTool(client, "omp_run", {
-        task: "Respond with exactly: HTTP_TOOL_COVERAGE_OK",
-        cwd: root,
-      });
-
-      expect(runResponse.isError).not.toBe(true);
-    } finally {
-      await transport.close();
-    }
-  }, 60_000);
 
   test("all native tools expose an MCP input schema", async () => {
     const { client, transport } = await createClient();
