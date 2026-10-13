@@ -134,9 +134,15 @@ MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=3000
 MCP_HTTP_PATH=/mcp
 
-# Required when using HTTP (`http` or `both`): shared Bearer token for all OMP-MCP HTTP endpoints.
+# Required for OMP Control and internal HTTP endpoints. The MCP endpoint also accepts OAuth access tokens when OAuth is configured.
 # Generate a strong secret with `openssl rand -hex 32` and set the same value as the OMP Control instance credential.
 OMP_API_TOKEN=
+
+# Optional OAuth 2.0 for remote MCP clients (requires a public HTTPS URL)
+# Use the public origin of this MCP server, without /mcp or another path.
+MCP_PUBLIC_URL=https://mcp.example.com
+OMP_OAUTH_USERNAME=
+OMP_OAUTH_PASSWORD=
 
 # OMP
 OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
@@ -149,6 +155,16 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 - `both` — runs both transports in the same process.
 
 `OMP_DEFAULT_CWD` is the default working directory used when an `omp_*` tool does not receive an explicit `cwd`. It is a convenience default, not a filesystem sandbox; callers can provide another working directory when needed.
+
+### OAuth 2.0 for remote MCP clients
+
+Set `MCP_PUBLIC_URL` to the public HTTPS origin that serves OMP-MCP, plus `OMP_OAUTH_USERNAME` and `OMP_OAUTH_PASSWORD` to enable OAuth authorization-code flow with PKCE (S256). Configure these secrets in the service environment; do not commit them. OAuth access tokens are stored as SHA-256 hashes in the control-plane SQLite database, expire after one hour, and use rotating refresh tokens. Dynamic client registration is enabled for public clients.
+
+The OAuth authorization server exposes `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. Remote clients should use the discovery metadata rather than hard-coding endpoint details.
+
+The hosted login page follows the OMP Control visual style and provides a dark/light theme toggle. It follows the operating-system theme by default and remembers a manual selection in the browser.
+
+The OAuth login uses the dedicated OMP OAuth username/password configured above; it is not automatically linked to an OMP Control browser session. Keep `OMP_API_TOKEN` configured for the OMP Control API and internal clients. OAuth credentials authorize MCP tool access only; other HTTP control-plane endpoints continue to require the internal Bearer token. Use HTTPS end-to-end and back up the control-plane database.
 
 ### Cloudflare Tunnel management
 

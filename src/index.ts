@@ -8,6 +8,7 @@ import { terminalManager } from "./terminal";
 import { config } from "./lib/config";
 import { stopAllTunnels } from "./tunnels/manager";
 import { authorizeHttpRequest } from "./lib/http-auth";
+import { handleOAuthRequest, isOAuthEndpoint } from "./lib/oauth";
 
 let server: Awaited<ReturnType<typeof createServer>> | undefined;
 let httpServer: ReturnType<typeof Bun.serve> | undefined;
@@ -28,10 +29,12 @@ if (config.transport === "http" || config.transport === "both") {
   httpServer = Bun.serve({
     hostname: config.httpHost,
     port: config.httpPort,
-    fetch(request) {
-      const authFailure = authorizeHttpRequest(request);
-      if (authFailure) return authFailure;
+    async fetch(request) {
       const url = new URL(request.url);
+      if (isOAuthEndpoint(url.pathname)) return handleOAuthRequest(request);
+
+      const authFailure = await authorizeHttpRequest(request, url.pathname === config.httpPath);
+      if (authFailure) return authFailure;
 
       if (url.pathname === config.httpPath) {
         return handleMcpHttpRequest(request);

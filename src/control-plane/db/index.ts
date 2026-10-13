@@ -8,7 +8,7 @@ import * as schema from "./schema";
 const dataDir = resolve(process.env.OMP_DATA_DIR ?? "/var/lib/omp-mcp");
 mkdirSync(dataDir, { recursive: true });
 
-const sqlite = new Database(resolve(dataDir, "control-plane.db"));
+export const sqlite = new Database(resolve(dataDir, "control-plane.db"));
 sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 
 export const db = drizzle({ client: sqlite, schema });
