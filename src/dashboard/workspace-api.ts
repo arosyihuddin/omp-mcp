@@ -38,6 +38,25 @@ export function workspacePath(input: string | null) {
   return { root, target, relativePath: rel || "." };
 }
 
+async function runGit(args: string[], cwd: string) {
+  const proc = Bun.spawn(["git", "-C", cwd, ...args], { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+  if (code !== 0) throw new HttpError(400, stderr.trim() || "Git command failed");
+  return stdout;
+}
+
+async function gitRepo(input: string | null) {
+  const { target } = workspacePath(input);
+  const info = await stat(target).catch(() => null);
+  const cwd = info ? (info.isDirectory() ? target : dirname(target)) : dirname(target);
+  const cwdInfo = await stat(cwd).catch(() => null);
+  if (!cwdInfo?.isDirectory()) throw new HttpError(404, "Workspace path not found");
+  const repo = (await runGit(["rev-parse", "--show-toplevel"], cwd)).trim();
+  workspacePath(repo);
+  return { repo };
+}
+
+
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "cache-control": "no-store" } });
 
@@ -145,6 +164,35 @@ export async function handleWorkspaceApi(request: Request, url: URL): Promise<Re
         const body = await readBody(request);
         return json({ session: saveEditorSession(body.root, body.tabs, body.activePath) });
       }
+    }
+
+    /* ------------------------------- git changes ------------------------------- */
+    if (pathname === "/api/workspace/git-status" && method === "GET") {
+      const { repo } = await gitRepo(requiredPath(url));
+      const { root } = workspacePath(".");
+      const output = await runGit(["status", "--porcelain=v1", "--untracked-files=all"], repo);
+      const files = output.split("\n").filter(Boolean).map((line) => {
+        const code = line.slice(0, 2);
+        const filePath = line.slice(3);
+        return { path: relative(root, join(repo, filePath)), name: basename(filePath), status: code, kind: code.includes("?") ? "untracked" : code.includes("A") ? "added" : code.includes("D") ? "deleted" : "modified" };
+      });
+      return json({ repo: relative(root, repo), files });
+    }
+
+    if (pathname === "/api/workspace/git-diff" && method === "GET") {
+      const requested = requiredPath(url);
+      const { target, relativePath } = workspacePath(requested);
+      const { repo } = await gitRepo(requested);
+      const rel = relative(repo, target);
+      if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep)) throw new HttpError(400, "File is outside the Git repository");
+      const statusOutput = await runGit(["status", "--porcelain=v1", "--untracked-files=all", "--", rel], repo);
+      if (!statusOutput.trim()) throw new HttpError(404, "File has no uncommitted changes");
+      const beforeResult = await Bun.spawn(["git", "-C", repo, "show", `HEAD:${rel}`], { stdout: "pipe", stderr: "pipe" });
+      const [beforeText, beforeCode] = await Promise.all([new Response(beforeResult.stdout).text(), beforeResult.exited]);
+      const before = beforeCode === 0 ? beforeText : "";
+      const info = await stat(target).catch(() => null);
+      const after = info?.isFile() ? await Bun.file(target).text() : "";
+      return json({ path: relativePath, before, after });
     }
 
     /* ---------------------------- file operations ---------------------------- */

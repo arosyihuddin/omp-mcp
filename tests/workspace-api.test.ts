@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -94,4 +95,36 @@ describe("workspace api", () => {
     expect(data.session.tabs).toHaveLength(2);
     expect(data.session.activePath).toBe(`${sandbox}/b`);
   });
+  test("reports uncommitted Git changes and before/after file contents", async () => {
+    const repoPath = `${sandbox}/gitrepo`;
+    const repo = join(homedir(), repoPath);
+    mkdirSync(repo, { recursive: true });
+    execFileSync("git", ["-C", repo, "init", "-q"]);
+    execFileSync("git", ["-C", repo, "config", "user.email", "test@example.com"]);
+    execFileSync("git", ["-C", repo, "config", "user.name", "Test"]);
+    writeFileSync(join(repo, "tracked.txt"), "before\\n");
+    execFileSync("git", ["-C", repo, "add", "tracked.txt"]);
+    execFileSync("git", ["-C", repo, "commit", "-qm", "initial"]);
+    writeFileSync(join(repo, "tracked.txt"), "after\\n");
+    writeFileSync(join(repo, "new.txt"), "new file\\n");
+
+    const status = await call("GET", `/api/workspace/git-status?path=${encodeURIComponent(repoPath)}`);
+    expect(status.status).toBe(200);
+    const statusData = status.data as { files: { name: string }[] };
+    expect(statusData.files.map((file) => file.name)).toContain("tracked.txt");
+    expect(statusData.files.map((file) => file.name)).toContain("new.txt");
+
+    const tracked = await call("GET", `/api/workspace/git-diff?path=${encodeURIComponent(`${repoPath}/tracked.txt`)}`);
+    expect(tracked.status).toBe(200);
+    const trackedData = tracked.data as { before: string; after: string };
+    expect(trackedData.before).toBe("before\\n");
+    expect(trackedData.after).toBe("after\\n");
+
+    const untracked = await call("GET", `/api/workspace/git-diff?path=${encodeURIComponent(`${repoPath}/new.txt`)}`);
+    expect(untracked.status).toBe(200);
+    const untrackedData = untracked.data as { before: string; after: string };
+    expect(untrackedData.before).toBe("");
+    expect(untrackedData.after).toBe("new file\\n");
+  });
+
 });
