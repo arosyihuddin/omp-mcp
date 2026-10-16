@@ -9,6 +9,7 @@ import { config } from "./lib/config";
 import { stopAllTunnels } from "./tunnels/manager";
 import { authorizeHttpRequest } from "./lib/http-auth";
 import { handleOAuthRequest, isOAuthEndpoint } from "./lib/oauth";
+import { nativeRuntime } from "./omp/native";
 
 let server: Awaited<ReturnType<typeof createServer>> | undefined;
 let httpServer: ReturnType<typeof Bun.serve> | undefined;
@@ -94,6 +95,7 @@ const shutdown = async (signal: string) => {
   httpServer?.stop();
   await stopAllTunnels();
   await closeMcpHttpSessions();
+  await nativeRuntime.dispose();
   await server?.close();
 };
 

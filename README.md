@@ -18,6 +18,12 @@ The dashboard frontend is maintained separately in the standalone omp-control pr
 
 The server uses OMP's native SDK/runtime for agent sessions and native tools, with optional Collab integration for session collaboration links. Session metadata is persisted in the local SQLite control database; SDK transcript files are used to rehydrate sessions after restart when available.
 
+The `sudo_exec` tool is an opt-in, high-risk tool. OMP Control exposes per-instance **Root command rules** under Tool permissions. Rules are persisted as JSON in the `workspace_prefs` table of the instance's SQLite control database. On first access, OMP-MCP seeds `shutdown now` and `reboot now` examples; both are **disabled by default**.
+
+The UI accepts a command name such as `systemctl`, while the backend resolves it only from trusted system directories. An exact command-and-argument match in an enabled rule bypasses approval. Other commands follow the normal OMP-MCP permission policy and may run after approval. Commands are executed directly without shell parsing; shell/interpreter executables, wildcard matching, and shell chaining are not supported. Approval does not make a command harmless, so keep permissions and arguments narrow.
+
+Set `OMP_SUDO_ENCRYPTION_KEY` to a private, stable value of at least 32 characters on each OMP-MCP instance before saving a sudo password. The password is stored encrypted in that instance's SQLite control database and is never returned by the configuration API. Do not reuse this key across unrelated hosts. The runtime needs `sudo` installed and the service account must be authorized to use it. Keep rules narrow: an explicitly allowed executable/argument pair can still perform powerful system changes.
+
 ## 📋 Requirements
 
 - Bun 1.4+
@@ -318,3 +324,10 @@ flowchart TD
 - The recommended HTTP deployment currently binds to `127.0.0.1`; expose it through a reverse proxy or other network boundary if remote clients are required.
 - HTTP mode requires `OMP_API_TOKEN`; all HTTP endpoints, including Streamable HTTP MCP, REST APIs, and terminal WebSocket upgrades, reject missing or invalid Bearer credentials. STDIO transport does not use HTTP authentication.
 - Collab availability depends on the OMP installation being authenticated and able to reach its configured relay.
+
+## Documentation
+
+- `ARCHITECTURE.md` — runtime modules, MCP transports, persistence, API boundaries, and security model.
+- `DESIGN.md` — hosted OAuth interface, API consistency, and permission/safety UX conventions.
+- `CONTRIBUTING.md` — development workflow, validation, migrations, and contribution checklist.
+- `deploy/README.md` — deployment-specific notes and operational instructions.

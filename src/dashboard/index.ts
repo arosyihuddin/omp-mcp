@@ -1,8 +1,7 @@
 import { subscribeDashboardEvents } from "./events";
 
-import { readdir, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { resolve, relative, sep } from "node:path";
+import { readdir, stat, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { config } from "../lib/config";
 import {
   getCpuInfo,
@@ -25,23 +24,42 @@ import {
 
 import { getDashboardTools } from "./tools";
 import { setToolExposed } from "../control-plane/tools/exposure";
-import { permissionModes, customRules, setSectionPermission, setToolPermission, resetSectionToolOverrides, getSectionPermissions, getSectionCustomRules, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "../control-plane/tools/permissions";
+import {
+  permissionModes,
+  customRules,
+  setSectionPermission,
+  setToolPermission,
+  resetSectionToolOverrides,
+  getSectionPermissions,
+  getSectionCustomRules,
+  type PermissionMode,
+  type PermissionSection,
+} from "../control-plane/tools/permissions";
 import { terminalManager } from "../terminal";
-import { isCustomPermissionRule, normalizeCustomPermissionRule } from "../control-plane/tools/custom-rules";
+import {
+  isCustomPermissionRule,
+  normalizeCustomPermissionRule,
+} from "../control-plane/tools/custom-rules";
 import { validateCustomRuleFields } from "../control-plane/tools/input-schema";
 import { countToolCallsToday, listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 import { handleTunnelApi } from "../tunnels/manager";
-
+import {
+  getRootCommandConfig,
+  saveRootCommandConfig,
+} from "../control-plane/root-commands";
 
 async function getGitIgnoredNames(target: string, names: string[]) {
   if (!names.length) return new Set<string>();
   try {
-    const proc = Bun.spawn(["git", "-C", target, "check-ignore", "--no-index", "--stdin"], {
-      stdin: new Blob([names.join("\n") + "\n"]),
-      stdout: "pipe",
-      stderr: "ignore",
-    });
+    const proc = Bun.spawn(
+      ["git", "-C", target, "check-ignore", "--no-index", "--stdin"],
+      {
+        stdin: new Blob([names.join("\n") + "\n"]),
+        stdout: "pipe",
+        stderr: "ignore",
+      },
+    );
     const output = await new Response(proc.stdout).text();
     await proc.exited;
     return new Set(output.split("\n").filter(Boolean));
@@ -53,26 +71,29 @@ async function getGitIgnoredNames(target: string, names: string[]) {
 async function getWorkspaceEntries(input: string | null) {
   const { target, relativePath } = workspacePath(input);
   const entries = await readdir(target, { withFileTypes: true });
-  const ignoredNames = await getGitIgnoredNames(target, entries.map((entry) => entry.name));
-  const items = (await Promise.all(
-    entries.map(async (entry) => {
-      const fullPath = resolve(target, entry.name);
-      try {
-        const info = await stat(fullPath);
-        return {
-          name: entry.name,
-          type: entry.isDirectory() ? "directory" : "file",
-          size: entry.isFile() ? info.size : null,
-          modified: info.mtime.toISOString(),
-          ignored: ignoredNames.has(entry.name),
-        };
-      } catch {
-        // Broken/unreadable symlinks (for example ~/.steampath) must not
-        // make the entire workspace listing fail.
-        return null;
-      }
-    }),
-  )).filter((item): item is NonNullable<typeof item> => item !== null);
+  const ignoredNames = await getGitIgnoredNames(
+    target,
+    entries.map((entry) => entry.name),
+  );
+  const items = (
+    await Promise.all(
+      entries.map(async (entry) => {
+        const fullPath = resolve(target, entry.name);
+        try {
+          const info = await stat(fullPath);
+          return {
+            name: entry.name,
+            type: entry.isDirectory() ? "directory" : "file",
+            size: entry.isFile() ? info.size : null,
+            modified: info.mtime.toISOString(),
+            ignored: ignoredNames.has(entry.name),
+          };
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((item): item is NonNullable<typeof item> => item !== null);
   items.sort((a, b) =>
     a.type === b.type
       ? a.name.localeCompare(b.name)
@@ -83,8 +104,17 @@ async function getWorkspaceEntries(input: string | null) {
   return { path: relativePath, items };
 }
 
-let dashboardStaticCache: { at: number; os: unknown; disk: unknown; display: unknown; runtime: unknown; desktop: unknown; network: unknown } | null = null;
-let dashboardTelemetryCache: { at: number; promise: Promise<unknown> } | null = null;
+let dashboardStaticCache: {
+  at: number;
+  os: unknown;
+  disk: unknown;
+  display: unknown;
+  runtime: unknown;
+  desktop: unknown;
+  network: unknown;
+} | null = null;
+let dashboardTelemetryCache: { at: number; promise: Promise<unknown> } | null =
+  null;
 
 async function getDashboardTelemetry(): Promise<unknown> {
   const now = Date.now();
@@ -100,7 +130,15 @@ async function getDashboardTelemetry(): Promise<unknown> {
         getDisplayInfo(),
         getRuntimeInfo(),
       ]);
-      dashboardStaticCache = { at: Date.now(), os, disk, display, runtime, desktop: getDesktopInfo(), network: getNetworkInfo() };
+      dashboardStaticCache = {
+        at: Date.now(),
+        os,
+        disk,
+        display,
+        runtime,
+        desktop: getDesktopInfo(),
+        network: getNetworkInfo(),
+      };
     }
 
     const [gpu] = await Promise.all([getGpuInfo()]);
@@ -130,7 +168,8 @@ async function getDashboardTelemetry(): Promise<unknown> {
   try {
     return await promise;
   } catch (error) {
-    if (dashboardTelemetryCache?.promise === promise) dashboardTelemetryCache = null;
+    if (dashboardTelemetryCache?.promise === promise)
+      dashboardTelemetryCache = null;
     throw error;
   }
 }
@@ -214,7 +253,10 @@ export async function handleDashboardRequest(
   }
   if (url.pathname === "/api/terminals" && request.method === "GET") {
     const scopeParam = url.searchParams.get("scope");
-    const scope = scopeParam === "project" || scopeParam === "general" ? scopeParam : undefined;
+    const scope =
+      scopeParam === "project" || scopeParam === "general"
+        ? scopeParam
+        : undefined;
     const workspaceRoot = url.searchParams.get("workspaceRoot") ?? undefined;
     try {
       return Response.json(
@@ -223,7 +265,10 @@ export async function handleDashboardRequest(
       );
     } catch (error) {
       return Response.json(
-        { error: error instanceof Error ? error.message : "Unable to list terminals" },
+        {
+          error:
+            error instanceof Error ? error.message : "Unable to list terminals",
+        },
         { status: 400 },
       );
     }
@@ -242,7 +287,14 @@ export async function handleDashboardRequest(
         throw new Error("Project terminal requires a workspace root");
       }
       return Response.json(
-        { terminal: terminalManager.create(body.cwd, body.title, scope, body.workspaceRoot) },
+        {
+          terminal: terminalManager.create(
+            body.cwd,
+            body.title,
+            scope,
+            body.workspaceRoot,
+          ),
+        },
         { status: 201 },
       );
     } catch (error) {
@@ -265,25 +317,65 @@ export async function handleDashboardRequest(
       : Response.json({ error: "Unknown terminal" }, { status: 404 });
   }
 
-  const sectionPermissionMatch = url.pathname.match(/^\/api\/tools\/sections\/(read_only|edit_delete|other)\/permission$/);
+  const sectionPermissionMatch = url.pathname.match(
+    /^\/api\/tools\/sections\/(read_only|edit_delete|other)\/permission$/,
+  );
   if (sectionPermissionMatch && request.method === "PATCH") {
     try {
       const section = sectionPermissionMatch[1] as PermissionSection;
-      const body = await request.json() as { permission?: unknown; customRule?: unknown };
-      if (!permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
-      if (body.customRule !== undefined && !(isCustomPermissionRule(body.customRule) || (typeof body.customRule === "string" && customRules.includes(body.customRule)))) throw new Error("Invalid custom permission rule");
+      const body = (await request.json()) as {
+        permission?: unknown;
+        customRule?: unknown;
+      };
+      if (!permissionModes.includes(body.permission as PermissionMode))
+        throw new Error("Invalid permission mode");
+      if (
+        body.customRule !== undefined &&
+        !(
+          isCustomPermissionRule(body.customRule) ||
+          (typeof body.customRule === "string" &&
+            customRules.includes(body.customRule))
+        )
+      )
+        throw new Error("Invalid custom permission rule");
       const tools = await getDashboardTools();
       if (body.customRule !== undefined) {
-        const fieldError = validateCustomRuleFields(normalizeCustomPermissionRule(body.customRule), tools.filter((tool) => tool.section === section).map((tool) => tool.name));
+        const fieldError = validateCustomRuleFields(
+          normalizeCustomPermissionRule(body.customRule),
+          tools
+            .filter((tool) => tool.section === section)
+            .map((tool) => tool.name),
+        );
         if (fieldError) throw new Error(fieldError);
       }
-      setSectionPermission(section, body.permission as PermissionMode, (body.customRule === undefined ? undefined : normalizeCustomPermissionRule(body.customRule)));
+      setSectionPermission(
+        section,
+        body.permission as PermissionMode,
+        body.customRule === undefined
+          ? undefined
+          : normalizeCustomPermissionRule(body.customRule),
+      );
       // A section-level change applies to every tool in that section. Clear individual overrides
       // so future calls inherit the new section policy; users can customize individual tools again.
       resetSectionToolOverrides(section, tools);
-      return Response.json({ tools: await getDashboardTools(), sectionPermissions: getSectionPermissions(), sectionCustomRules: getSectionCustomRules() }, { headers: { "cache-control": "no-store" } });
+      return Response.json(
+        {
+          tools: await getDashboardTools(),
+          sectionPermissions: getSectionPermissions(),
+          sectionCustomRules: getSectionCustomRules(),
+        },
+        { headers: { "cache-control": "no-store" } },
+      );
     } catch (error) {
-      return Response.json({ error: error instanceof Error ? error.message : "Unable to update section permission" }, { status: 400 });
+      return Response.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to update section permission",
+        },
+        { status: 400 },
+      );
     }
   }
 
@@ -292,26 +384,72 @@ export async function handleDashboardRequest(
     try {
       const name = decodeURIComponent(toolMatch[1]);
       const currentTools = await getDashboardTools();
-      if (!currentTools.some((item) => item.name === name)) return Response.json({ error: "Unknown tool" }, { status: 404 });
-      const body = await request.json() as { exposed?: unknown; permission?: unknown; customRule?: unknown };
+      if (!currentTools.some((item) => item.name === name))
+        return Response.json({ error: "Unknown tool" }, { status: 404 });
+      const body = (await request.json()) as {
+        exposed?: unknown;
+        permission?: unknown;
+        customRule?: unknown;
+      };
       if (body.exposed !== undefined) {
-        if (typeof body.exposed !== "boolean") throw new Error("exposed must be a boolean");
+        if (typeof body.exposed !== "boolean")
+          throw new Error("exposed must be a boolean");
         setToolExposed(name, body.exposed);
       }
       if (body.permission !== undefined || body.customRule !== undefined) {
-        if (body.permission !== undefined && body.permission !== null && !permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
-        if (body.customRule !== undefined && !(isCustomPermissionRule(body.customRule) || (typeof body.customRule === "string" && customRules.includes(body.customRule)))) throw new Error("Invalid custom permission rule");
+        if (
+          body.permission !== undefined &&
+          body.permission !== null &&
+          !permissionModes.includes(body.permission as PermissionMode)
+        )
+          throw new Error("Invalid permission mode");
+        if (
+          body.customRule !== undefined &&
+          !(
+            isCustomPermissionRule(body.customRule) ||
+            (typeof body.customRule === "string" &&
+              customRules.includes(body.customRule))
+          )
+        )
+          throw new Error("Invalid custom permission rule");
         if (body.customRule !== undefined) {
-          const fieldError = validateCustomRuleFields(normalizeCustomPermissionRule(body.customRule), [name]);
+          const fieldError = validateCustomRuleFields(
+            normalizeCustomPermissionRule(body.customRule),
+            [name],
+          );
           if (fieldError) throw new Error(fieldError);
         }
-        setToolPermission(name, body.permission as PermissionMode | null, (body.customRule === undefined ? undefined : normalizeCustomPermissionRule(body.customRule)));
+        setToolPermission(
+          name,
+          body.permission as PermissionMode | null,
+          body.customRule === undefined
+            ? undefined
+            : normalizeCustomPermissionRule(body.customRule),
+        );
       }
-      if (body.exposed === undefined && body.permission === undefined && body.customRule === undefined) throw new Error("No tool setting provided");
-      const tool = (await getDashboardTools()).find((item) => item.name === name);
-      return Response.json({ tool }, { headers: { "cache-control": "no-store" } });
+      if (
+        body.exposed === undefined &&
+        body.permission === undefined &&
+        body.customRule === undefined
+      )
+        throw new Error("No tool setting provided");
+      const tool = (await getDashboardTools()).find(
+        (item) => item.name === name,
+      );
+      return Response.json(
+        { tool },
+        { headers: { "cache-control": "no-store" } },
+      );
     } catch (error) {
-      return Response.json({ error: error instanceof Error ? error.message : "Unable to update tool settings" }, { status: 400 });
+      return Response.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to update tool settings",
+        },
+        { status: 400 },
+      );
     }
   }
   if (url.pathname === "/api/logs" && request.method === "GET") {
@@ -360,6 +498,34 @@ export async function handleDashboardRequest(
       { headers: { "cache-control": "no-store" } },
     );
   }
+
+  if (url.pathname === "/api/root-commands" && request.method === "GET") {
+    return Response.json(getRootCommandConfig(), {
+      headers: { "cache-control": "no-store" },
+    });
+  }
+  if (url.pathname === "/api/root-commands" && request.method === "PUT") {
+    try {
+      const body = (await request.json()) as {
+        rules: Array<{ command: string; args: string[]; enabled: boolean }>;
+        password?: string;
+        clearPassword?: boolean;
+      };
+      return Response.json(saveRootCommandConfig(body), {
+        headers: { "cache-control": "no-store" },
+      });
+    } catch (error) {
+      return Response.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to save root command configuration",
+        },
+        { status: 400, headers: { "cache-control": "no-store" } },
+      );
+    }
+  }
   if (url.pathname === "/api/approvals") {
     return Response.json(
       { approvals: listApprovals() },
@@ -384,7 +550,8 @@ export async function handleDashboardRequest(
         { status: 400 },
       );
     }
-    const changed = action === "approve" ? approveApproval(id) : denyApproval(id);
+    const changed =
+      action === "approve" ? approveApproval(id) : denyApproval(id);
     if (!changed)
       return Response.json(
         { error: "Approval not found or no longer pending" },
@@ -465,7 +632,10 @@ export async function handleDashboardRequest(
       });
     } catch (error) {
       return Response.json(
-        { error: error instanceof Error ? error.message : "Unable to preview file" },
+        {
+          error:
+            error instanceof Error ? error.message : "Unable to preview file",
+        },
         { status: 400 },
       );
     }
@@ -500,7 +670,8 @@ export async function handleDashboardRequest(
   if (url.pathname === "/" || url.pathname === "/dashboard") {
     return Response.json({
       service: "omp-mcp",
-      message: "The dashboard UI has moved to the standalone omp-control project.",
+      message:
+        "The dashboard UI has moved to the standalone omp-control project.",
       apiBase: "/api",
     });
   }

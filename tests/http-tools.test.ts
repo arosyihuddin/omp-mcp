@@ -28,6 +28,7 @@ const computerTools = [
 ] as const;
 
 const systemTools = ["system_info", "hardware_info", "capabilities"] as const;
+const controlTools = ["sudo_exec"] as const;
 
 const tunnelTools = ["tunnel_list", "tunnel_status", "tunnel_start", "tunnel_stop"] as const;
 
@@ -121,7 +122,7 @@ describe("MCP Streamable HTTP tool coverage", () => {
     try {
       const result = await client.listTools();
       const names = new Set(result.tools.map((tool) => tool.name));
-      const expected = [...filesystemTools, ...computerTools, ...systemTools, ...tunnelTools, ...nativeTools];
+      const expected = [...filesystemTools, ...computerTools, ...systemTools, ...tunnelTools, ...nativeTools, ...controlTools];
 
       expect(result.tools).toHaveLength(expected.length);
 

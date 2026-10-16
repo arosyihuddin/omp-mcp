@@ -7,6 +7,7 @@ import { recordToolCallLog } from "../../control-plane/logs";
 import { getToolPermission } from "../../control-plane/tools/permissions";
 import { evaluateCustomPermissionRule } from "../../control-plane/tools/custom-rules";
 import { getApprovalDecisionMessage, requestApproval } from "../../approval";
+import { isRootCommandWhitelisted } from "../../control-plane/root-commands";
 import { errorResult } from "./shared";
 import { registerToolInputSchema } from "../../control-plane/tools/input-schema";
 const handles = new WeakMap<McpServer, Map<string, RegisteredTool>>();
@@ -55,7 +56,7 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
     try { serializedArgs = JSON.stringify(args); } catch { serializedArgs = String(args); }
     try {
       const annotations = definition.annotations;
-      const risk = name.startsWith("omp_") ? "isolated" : annotations?.readOnlyHint ? "low" : (annotations?.openWorldHint || ["bash", "eval", "mouse_click", "mouse_drag", "keyboard_press", "keyboard_hotkey", "keyboard_type"].includes(name)) ? "high" : "medium";
+      const risk = name.startsWith("omp_") ? "isolated" : annotations?.readOnlyHint ? "low" : (annotations?.openWorldHint || ["bash", "eval", "sudo_exec", "mouse_click", "mouse_drag", "keyboard_press", "keyboard_hotkey", "keyboard_type"].includes(name)) ? "high" : "medium";
       const toolPermission = getToolPermission(name, risk);
       const policy = toolPermission.permission;
       const customAction = policy === "custom"
@@ -77,7 +78,11 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
         });
         return errorResult(message);
       }
-      const needsApproval = policy === "require_approval" || customAction === "require_approval";
+      let whitelistMatch = false;
+      if (name === "sudo_exec" && args !== null && typeof args === "object" && "command" in args && "args" in args) {
+        whitelistMatch = isRootCommandWhitelisted(args.command, args.args);
+      }
+      const needsApproval = !whitelistMatch && (policy === "require_approval" || customAction === "require_approval");
       if (needsApproval) {
         const decision = await requestApproval({
           tool: name,
