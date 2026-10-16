@@ -5,8 +5,10 @@ import type { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ensureToolConfig, isToolExposed, subscribeToolExposure } from "../../control-plane/tools/exposure";
 import { recordToolCallLog } from "../../control-plane/logs";
 import { getToolPermission } from "../../control-plane/tools/permissions";
+import { evaluateCustomPermissionRule } from "../../control-plane/tools/custom-rules";
 import { getApprovalDecisionMessage, requestApproval } from "../../approval";
 import { errorResult } from "./shared";
+import { registerToolInputSchema } from "../../control-plane/tools/input-schema";
 const handles = new WeakMap<McpServer, Map<string, RegisteredTool>>();
 const subscribedServers = new WeakSet<McpServer>();
 
@@ -40,6 +42,7 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
 ): RegisteredTool {
   ensureServerSubscription(server);
   ensureToolConfig(name);
+  registerToolInputSchema(name, definition.inputSchema);
   type GenericExtra = Parameters<ToolCallback<ZodRawShapeCompat>>[1];
   type GenericHandler = (...args: unknown[]) => ReturnType<ToolCallback<ZodRawShapeCompat>>;
   const genericHandler = handler as unknown as GenericHandler;
@@ -55,10 +58,26 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
       const risk = name.startsWith("omp_") ? "isolated" : annotations?.readOnlyHint ? "low" : (annotations?.openWorldHint || ["bash", "eval", "mouse_click", "mouse_drag", "keyboard_press", "keyboard_hotkey", "keyboard_type"].includes(name)) ? "high" : "medium";
       const toolPermission = getToolPermission(name, risk);
       const policy = toolPermission.permission;
-      if (policy === "blocked" || (policy === "custom" && toolPermission.customRule === "block_high_risk" && risk === "high")) {
-        return errorResult(`Tool '${name}' is blocked by the OMP-MCP permission policy.`);
+      const customAction = policy === "custom"
+        ? evaluateCustomPermissionRule(toolPermission.customRule, { name, risk, args })
+        : null;
+      if (policy === "blocked" || customAction === "block") {
+        const message = `Tool '${name}' is blocked by the OMP-MCP permission policy.`;
+        recordToolCallLog({
+          timestamp: new Date().toISOString(),
+          requestId: String(extra.requestId),
+          sessionId: extra.sessionId,
+          toolName: name,
+          status: "error",
+          approval: null,
+          durationMs: Math.round(performance.now() - startedAt),
+          arguments: serializedArgs,
+          result: JSON.stringify({ error: message, blocked: true }),
+          error: message,
+        });
+        return errorResult(message);
       }
-      const needsApproval = policy === "require_approval" || (policy === "custom" && (toolPermission.customRule === "approval" || (toolPermission.customRule === "high_risk" && risk === "high")));
+      const needsApproval = policy === "require_approval" || customAction === "require_approval";
       if (needsApproval) {
         const decision = await requestApproval({
           tool: name,
@@ -67,7 +86,7 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
           sessionId: extra.sessionId,
           requestId: extra.requestId,
           signal: extra.signal,
-          reason: policy === "custom" ? `Custom permission rule: ${toolPermission.customRule}.` : "Tool permission policy requires approval before execution.",
+          reason: policy === "custom" ? "Custom permission rule requires approval." : "Tool permission policy requires approval before execution.",
         });
         if (!decision.approved) return errorResult(getApprovalDecisionMessage(decision.status));
       }

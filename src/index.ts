@@ -15,14 +15,18 @@ let httpServer: ReturnType<typeof Bun.serve> | undefined;
 
 await mkdir(config.ompDefaultCwd, { recursive: true });
 
+server = await createServer();
 if (config.transport === "stdio" || config.transport === "both") {
-  server = await createServer();
   logger.info({ transport: "stdio" }, "OMP MCP server starting");
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
   logger.info({ transport: "stdio" }, "OMP MCP server connected");
+} else {
+  // Register tool schemas at startup even in HTTP-only mode, before the first
+  // MCP client connects and the dashboard requests its tool catalog.
+  logger.info({ transport: "http", schemas: "initialized" }, "OMP tool schemas initialized");
 }
 
 if (config.transport === "http" || config.transport === "both") {

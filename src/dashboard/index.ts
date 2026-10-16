@@ -27,6 +27,8 @@ import { getDashboardTools } from "./tools";
 import { setToolExposed } from "../control-plane/tools/exposure";
 import { permissionModes, customRules, setSectionPermission, setToolPermission, resetSectionToolOverrides, getSectionPermissions, getSectionCustomRules, type CustomPermissionRule, type PermissionMode, type PermissionSection } from "../control-plane/tools/permissions";
 import { terminalManager } from "../terminal";
+import { isCustomPermissionRule, normalizeCustomPermissionRule } from "../control-plane/tools/custom-rules";
+import { validateCustomRuleFields } from "../control-plane/tools/input-schema";
 import { countToolCallsToday, listToolCallLogs } from "../control-plane/logs";
 import { handleWorkspaceApi, workspacePath } from "./workspace-api";
 import { handleTunnelApi } from "../tunnels/manager";
@@ -269,9 +271,13 @@ export async function handleDashboardRequest(
       const section = sectionPermissionMatch[1] as PermissionSection;
       const body = await request.json() as { permission?: unknown; customRule?: unknown };
       if (!permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
-      if (body.customRule !== undefined && !customRules.includes(body.customRule as CustomPermissionRule)) throw new Error("Invalid custom permission rule");
+      if (body.customRule !== undefined && !(isCustomPermissionRule(body.customRule) || (typeof body.customRule === "string" && customRules.includes(body.customRule)))) throw new Error("Invalid custom permission rule");
       const tools = await getDashboardTools();
-      setSectionPermission(section, body.permission as PermissionMode, body.customRule as CustomPermissionRule | undefined);
+      if (body.customRule !== undefined) {
+        const fieldError = validateCustomRuleFields(normalizeCustomPermissionRule(body.customRule), tools.filter((tool) => tool.section === section).map((tool) => tool.name));
+        if (fieldError) throw new Error(fieldError);
+      }
+      setSectionPermission(section, body.permission as PermissionMode, (body.customRule === undefined ? undefined : normalizeCustomPermissionRule(body.customRule)));
       // A section-level change applies to every tool in that section. Clear individual overrides
       // so future calls inherit the new section policy; users can customize individual tools again.
       resetSectionToolOverrides(section, tools);
@@ -294,8 +300,12 @@ export async function handleDashboardRequest(
       }
       if (body.permission !== undefined || body.customRule !== undefined) {
         if (body.permission !== undefined && body.permission !== null && !permissionModes.includes(body.permission as PermissionMode)) throw new Error("Invalid permission mode");
-        if (body.customRule !== undefined && !customRules.includes(body.customRule as CustomPermissionRule)) throw new Error("Invalid custom permission rule");
-        setToolPermission(name, body.permission as PermissionMode | null, body.customRule as CustomPermissionRule | undefined);
+        if (body.customRule !== undefined && !(isCustomPermissionRule(body.customRule) || (typeof body.customRule === "string" && customRules.includes(body.customRule)))) throw new Error("Invalid custom permission rule");
+        if (body.customRule !== undefined) {
+          const fieldError = validateCustomRuleFields(normalizeCustomPermissionRule(body.customRule), [name]);
+          if (fieldError) throw new Error(fieldError);
+        }
+        setToolPermission(name, body.permission as PermissionMode | null, (body.customRule === undefined ? undefined : normalizeCustomPermissionRule(body.customRule)));
       }
       if (body.exposed === undefined && body.permission === undefined && body.customRule === undefined) throw new Error("No tool setting provided");
       const tool = (await getDashboardTools()).find((item) => item.name === name);

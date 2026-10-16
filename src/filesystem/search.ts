@@ -1,4 +1,5 @@
-import { access } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 
 interface CommandOptions {
   cwd: string;
@@ -73,6 +74,52 @@ export interface FsGrepInput {
   fixed_strings?: boolean;
 }
 
+async function fsFindFallback(
+  searchPath: string,
+  cwd: string,
+  input: FsFindInput,
+  maxResults: number,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const root = resolve(cwd, searchPath);
+  const deadline = Date.now() + 10_000;
+  let matcher: RegExp | null = null;
+  if (input.pattern) {
+    try { matcher = new RegExp(input.pattern, "i"); }
+    catch { throw new Error("pattern must be a valid regular expression when fd is unavailable"); }
+  }
+  const results: string[] = [];
+  async function walk(directory: string, depth: number): Promise<void> {
+    if (signal?.aborted) throw new Error("Search aborted");
+    if (Date.now() > deadline) throw new Error("Search timed out after 10000ms");
+    if (results.length >= maxResults || (input.max_depth !== undefined && depth >= input.max_depth)) return;
+    let entries;
+    try { entries = await readdir(directory, { withFileTypes: true }); }
+    catch (error) {
+      if (error && typeof error === "object" && "code" in error && ["EACCES", "EPERM"].includes(String(error.code))) return;
+      throw error;
+    }
+    for (const entry of entries) {
+      if (signal?.aborted) throw new Error("Search aborted");
+      if (Date.now() > deadline) throw new Error("Search timed out after 10000ms");
+      if (results.length >= maxResults) break;
+      if (!input.hidden && entry.name.startsWith(".")) continue;
+      const fullPath = join(directory, entry.name);
+      const isDirectory = entry.isDirectory();
+      if (input.type === "file" && isDirectory) {
+        if (input.max_depth === undefined || depth + 1 < input.max_depth) await walk(fullPath, depth + 1);
+        continue;
+      }
+      if (input.type === "directory" && !isDirectory) continue;
+      const matchPath = relative(root, fullPath);
+      if (!matcher || matcher.test(entry.name) || matcher.test(matchPath)) results.push(fullPath);
+      if (isDirectory && (input.max_depth === undefined || depth + 1 < input.max_depth)) await walk(fullPath, depth + 1);
+    }
+  }
+  await walk(root, 0);
+  return results;
+}
+
 export async function fsFind(
   input: FsFindInput,
   cwd: string,
@@ -82,24 +129,24 @@ export async function fsFind(
   await ensurePath(searchPath, cwd);
 
   const maxResults = Math.min(Math.max(Math.floor(input.max_results ?? 100), 1), 1000);
-  const args = ["fd", "--color", "never", "--max-results", String(maxResults)];
-
-  if (!input.hidden) args.push("--hidden");
-  if (input.type === "file") args.push("--type", "f");
-  else if (input.type === "directory") args.push("--type", "d");
-
-  if (input.max_depth !== undefined) {
-    if (!Number.isInteger(input.max_depth) || input.max_depth < 0) {
-      throw new Error("max_depth must be a non-negative integer");
-    }
-    args.push("--max-depth", String(input.max_depth));
+  if (input.max_depth !== undefined && (!Number.isInteger(input.max_depth) || input.max_depth < 0)) {
+    throw new Error("max_depth must be a non-negative integer");
   }
 
-  if (input.pattern) args.push(input.pattern);
-  args.push(searchPath);
-
-  const stdout = await runCommand(args, { cwd, signal, timeoutMs: 10_000 });
-  const results = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  let results: string[];
+  if (Bun.which("fd")) {
+    const args = ["fd", "--color", "never", "--max-results", String(maxResults)];
+    if (input.hidden) args.push("--hidden");
+    if (input.type === "file") args.push("--type", "f");
+    else if (input.type === "directory") args.push("--type", "d");
+    if (input.max_depth !== undefined) args.push("--max-depth", String(input.max_depth));
+    if (input.pattern) args.push(input.pattern);
+    args.push(searchPath);
+    const stdout = await runCommand(args, { cwd, signal, timeoutMs: 10_000 });
+    results = stdout.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, maxResults);
+  } else {
+    results = await fsFindFallback(searchPath, cwd, input, maxResults, signal);
+  }
 
   return {
     results,

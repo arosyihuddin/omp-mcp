@@ -10,7 +10,7 @@ const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: t
 
 export function registerFilesystemTools(server: McpServer) {
   registerExposedTool(server, "fs_find", {
-    description: "Fast filesystem search for files and directories using fd. Suitable for large directory trees; read-only.",
+    description: "Search files and directories by pattern. Uses fd when available and a built-in fallback otherwise; read-only.",
     inputSchema: {
       pattern: z.string().optional(), path: z.string().min(1).optional(),
       type: z.enum(["file", "directory", "both"]).optional().default("both"),

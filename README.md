@@ -176,7 +176,13 @@ The MCP tools `tunnel_list`, `tunnel_status`, `tunnel_start`, and `tunnel_stop` 
 
 ## 🛠️ Tools
 
-The server exposes two layers:
+The server exposes two layers.
+
+### Tool catalog and permission rules
+
+OMP-MCP's `GET /api/tools` endpoint is the source of truth consumed by OMP-Control. The catalog combines OMP-MCP's registered built-in tools with the currently enabled native OMP tools; the native set is discovered at runtime. Tool exposure and execution permissions are enforced by OMP-MCP, not by the dashboard UI.
+
+The `custom` permission mode supports a saved rule with multiple conditions. Conditions can match **all (AND)** or **any (OR)** and apply one action when matched plus a fallback action otherwise. Supported fields are `tool.name`, `tool.risk`, and nested input arguments such as `args.path` or `args.command`. Operators: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `greater_than`, `less_than`, `exists`, `not_exists`, `in`, and `not_in`. Actions are `allow`, `require_approval`, and `block`. For `in`/`not_in`, provide a comma-separated list. Existing named rules are normalized for compatibility with saved settings.
 
 ### Browser automation
 
