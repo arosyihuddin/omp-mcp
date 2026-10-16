@@ -27,7 +27,6 @@ type PendingApproval = ApprovalRequest & {
 
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const approvals = new Map<string, PendingApproval>();
-const sessionTrust = new Set<string>();
 
 function now() {
   return new Date().toISOString();
@@ -48,14 +47,6 @@ function finish(id: string, status: ApprovalStatus, approved: boolean) {
 }
 
 
-function trustKey(tool: string, sessionId?: string) {
-  return sessionId ? `${sessionId}:${tool}` : undefined;
-}
-
-export function isSessionTrusted(tool: string, sessionId?: string) {
-  const key = trustKey(tool, sessionId);
-  return key ? sessionTrust.has(key) : false;
-}
 
 export function clearApprovalHistory() {
   for (const [id, approval] of approvals) {
@@ -76,13 +67,7 @@ export function getApproval(id: string): ApprovalRequest | undefined {
   return approval ? publicApproval(approval) : undefined;
 }
 
-export function approveApproval(id: string, rememberForSession = false) {
-  const approval = approvals.get(id);
-  if (!approval || approval.status !== "pending") return false;
-  if (rememberForSession && approval.risk === "medium") {
-    const key = trustKey(approval.tool, approval.sessionId);
-    if (key) sessionTrust.add(key);
-  }
+export function approveApproval(id: string) {
   return finish(id, "approved", true);
 }
 
@@ -109,9 +94,6 @@ export async function requestApproval(options: {
   reason?: string;
   ttlMs?: number;
 }): Promise<ApprovalDecision> {
-  if (options.risk === "medium" && isSessionTrusted(options.tool, options.sessionId)) {
-    return { approved: true, status: "approved" };
-  }
 
   const id = crypto.randomUUID();
   const createdAt = now();

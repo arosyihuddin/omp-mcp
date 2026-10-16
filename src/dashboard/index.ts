@@ -378,18 +378,13 @@ export async function handleDashboardRequest(
     const parts = url.pathname.split("/");
     const id = parts[3];
     const action = parts[4];
-    if (!id || !["approve", "approve-session", "deny"].includes(action)) {
+    if (!id || !["approve", "deny"].includes(action)) {
       return Response.json(
         { error: "Invalid approval action" },
         { status: 400 },
       );
     }
-    const changed =
-      action === "approve-session"
-        ? approveApproval(id, true)
-        : action === "approve"
-          ? approveApproval(id)
-          : denyApproval(id);
+    const changed = action === "approve" ? approveApproval(id) : denyApproval(id);
     if (!changed)
       return Response.json(
         { error: "Approval not found or no longer pending" },
