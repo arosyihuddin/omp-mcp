@@ -29,6 +29,9 @@ const TERMINAL_ROOT = resolve(process.env.OMP_TERMINAL_ROOT ?? homedir());
 
 function workspaceCwd(input?: string) {
   const root = TERMINAL_ROOT;
+  // Absolute workspace paths are intentional (for example, the filesystem root `/`).
+  // Keep relative paths scoped to the configured terminal root for backwards compatibility.
+  if (input?.startsWith("/")) return resolve(input);
   const target = resolve(root, input ?? ".");
   const rel = relative(root, target);
   if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep)) {
