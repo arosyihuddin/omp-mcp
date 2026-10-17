@@ -89,7 +89,7 @@ setup:
 		printf 'OMP default cwd ['"$$cwd"']: '; read value; cwd="$${value:-$$cwd}"; \
 		if [ -z "$$api_token" ]; then api_token="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_API_TOKEN (256-bit)."; fi; \
 		if [ -z "$$sudo_key" ]; then sudo_key="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_SUDO_ENCRYPTION_KEY (256-bit)."; fi; \
-		printf 'OAuth public HTTPS origin (blank disables OAuth) ['"$$oauth_url"']: '; read value; oauth_url="$${value:-$$oauth_url}"; \
+		printf 'OAuth public HTTPS origin (blank disables OAuth, e.g. https://mcp.example.com): '; read value; oauth_url="$${value:-$$oauth_url}"; \
 		printf 'OMP OAuth username ['"$$oauth_user"']: '; read value; oauth_user="$${value:-$$oauth_user}"; \
 		if [ -n "$$oauth_password" ]; then printf 'OMP OAuth password [press Enter to keep existing; input hidden]: '; else printf 'OMP OAuth password (required; input hidden): '; fi; \
 		stty -echo; read oauth_input; stty echo; printf '\n'; if [ -n "$$oauth_input" ]; then oauth_password="$$oauth_input"; fi; \
