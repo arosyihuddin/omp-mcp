@@ -28,7 +28,7 @@ Or:
 sudo make setup
 ```
 
-The installer creates the `omp-mcp` system user/group, installs the application, installs production dependencies, creates the persistent workspace, installs the systemd unit, and enables the service.
+The installer installs the application and production dependencies, creates the persistent workspace, installs the OMP MCP unit plus optional Browser Relay and ydotoold units, and enables only `omp-mcp.service`. The optional units are not started or enabled by default; their failures do not block OMP MCP.
 
 Review `/opt/omp-mcp/.env` before starting the service.
 
@@ -41,6 +41,17 @@ sudo make restart
 sudo make status
 sudo make logs
 ```
+
+The default Make targets manage only `omp-mcp.service`. Optional integrations can be managed independently when needed:
+
+```bash
+sudo make start relay
+sudo make start ydotoold
+sudo make status relay
+sudo make logs ydotoold
+```
+
+To enable an optional service at boot, use `sudo systemctl enable --now omp-mcp-browser-relay.service` or `sudo systemctl enable --now ydotoold.service`.
 
 ## Update
 

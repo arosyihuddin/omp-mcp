@@ -61,22 +61,30 @@ sudo make start
 sudo make status
 ```
 
-`make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and Browser Relay systemd units, and enables both services at boot. The services run as the existing `pstar7` user and use the Bun installation at `/home/pstar7/.bun/bin/bun`.
+`make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and optional integration systemd units, and enables **only `omp-mcp.service`** at boot. The MCP server does not depend on the optional services and can run if either is missing or fails. The services run as the existing `pstar7` user; OMP MCP uses the Bun binary installed under `/opt/omp-mcp/bin`.
 
-The deployment includes two services:
+The deployment includes the following services:
 
 - `omp-mcp.service` — the MCP server, listening on the configured Streamable HTTP endpoint.
-- `omp-mcp-browser-relay.service` — OMP Browser Relay on `127.0.0.1:9224`, allowing OMP's browser tools to drive connected Chrome/Brave tabs through the Browser Relay extension.
+- `omp-mcp-browser-relay.service` — optional Browser Relay on `127.0.0.1:9224`, allowing OMP's browser tools to drive connected Chrome/Brave tabs through the Browser Relay extension.
+- `ydotoold.service` — optional daemon for desktop input automation; only needed for tools that use `ydotool`.
 
-The Browser Relay service is intended to keep the local relay available for the browser extension. Install/connect the OMP Browser Relay extension once, then the service will restart automatically if the relay process exits.
+Optional units are installed but **not enabled or started by default**. If upgrading an installation that previously enabled them, disable unused units once with: sudo systemctl disable --now omp-mcp-browser-relay.service ydotoold.service. Enable an optional unit only on a machine where you use that integration:
 
-Check both services with:
+```bash
+sudo systemctl enable --now omp-mcp-browser-relay.service
+sudo systemctl enable --now ydotoold.service
+```
+
+Or manage them through Make targets such as `sudo make start relay`, `sudo make status ydotoold`, and `sudo make logs relay`. Optional service failures will not prevent the MCP server from starting.
+
+Check the main service with:
 
 ```bash
 sudo make status
 ```
 
-Follow both services' logs with:
+Follow the main service's logs with:
 
 ```bash
 sudo make logs
