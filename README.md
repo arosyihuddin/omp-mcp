@@ -90,6 +90,15 @@ Follow the main service's logs with:
 sudo make logs
 ```
 
+To retrieve the configured credentials from the protected `/opt/omp-mcp/.env` file, use:
+
+```bash
+sudo make token
+sudo make oauth
+```
+
+`make token` prints `OMP_API_TOKEN`; `make oauth` prints the OAuth public URL, username, and password plus whether OAuth is configured. These commands reveal secrets in the terminal, so use them only in a trusted session. They display existing values and do not generate or rotate credentials.
+
 The default deployment configuration uses Streamable HTTP:
 
 ```text

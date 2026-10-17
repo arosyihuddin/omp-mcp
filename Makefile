@@ -19,12 +19,14 @@ BUN := $(SERVICE_HOME)/.bun/bin/bun
 endif
 
 
-.PHONY: help setup install update uninstall purge start stop restart status logs ydotoold omp relay test typecheck release
+.PHONY: help setup install update uninstall purge start stop restart status logs token oauth ydotoold omp relay test typecheck release
 
 help:
 	@echo "OMP MCP - available targets"
 	@echo ""
 	@echo "  setup       Install and enable the systemd services"
+	@echo "  token       Display the configured OMP API Bearer token"
+	@echo "  oauth       Display the configured OAuth URL, username, and password"
 	@echo "  install     Install the application and systemd services"
 	@echo "  update      Reinstall the application and restart the services"
 	@echo "  uninstall   Remove the services and application (preserve data)"
@@ -44,6 +46,16 @@ help:
 	@echo "  typecheck   Run TypeScript typecheck"
 	@echo ""
 	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
+
+# These targets intentionally print secrets to the terminal. Run only in a trusted session.
+token:
+	@test -r $(INSTALL_DIR)/.env || { echo "Cannot read $(INSTALL_DIR)/.env; try sudo make token."; exit 1; }
+	@cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun -e 'const token = process.env.OMP_API_TOKEN ?? ""; if (!token) { console.error("OMP_API_TOKEN is not configured."); process.exit(1); } console.log("OMP_API_TOKEN=" + token);'
+
+oauth:
+	@test -r $(INSTALL_DIR)/.env || { echo "Cannot read $(INSTALL_DIR)/.env; try sudo make oauth."; exit 1; }
+	@cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun -e 'const url = process.env.MCP_PUBLIC_URL ?? ""; const username = process.env.OMP_OAUTH_USERNAME ?? ""; const password = process.env.OMP_OAUTH_PASSWORD ?? ""; console.log("OAuth status=" + (url && username && password ? "configured" : "disabled/incomplete")); console.log("MCP_PUBLIC_URL=" + (url || "(not set)")); console.log("OMP_OAUTH_USERNAME=" + (username || "(not set)")); console.log("OMP_OAUTH_PASSWORD=" + (password || "(not set)"));'
+
 start:
 	@if echo " $(MAKECMDGOALS) " | grep -q " ydotoold "; then systemctl start $(YDOTOOL_SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " omp "; then systemctl start $(SERVICE_NAME); elif echo " $(MAKECMDGOALS) " | grep -q " relay "; then systemctl start $(RELAY_SERVICE_NAME); else systemctl start $(SERVICE_NAME); fi
 
