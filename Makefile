@@ -153,20 +153,27 @@ install:
 
 update:
 	@test "$$(id -u)" = "0" || (echo "Run 'make update' as root (use sudo)." && exit 1)
-	@if [ -n "$(VERSION)" ]; then \
-		version="$(VERSION)"; \
-		version="$${version#v}"; \
+	@set -eu; \
+	source_dir="$(CURDIR)"; tmp=""; \
+	if [ -n "$(VERSION)" ]; then \
+		version="$(VERSION)"; version="$${version#v}"; \
 		printf '%s\n' "$$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || { echo "Invalid release version: $(VERSION)"; exit 1; }; \
 		git fetch --tags origin; \
 		git rev-parse --verify "refs/tags/v$$version" >/dev/null 2>&1 || { echo "Git tag v$$version not found."; exit 1; }; \
-		tmp="$$(mktemp -d)"; \
-		trap 'rm -rf "$$tmp"' EXIT INT TERM; \
-		git archive --format=tar "v$$version" | tar -xf - -C "$$tmp"; \
-		$(MAKE) -C "$$tmp" install BUN="$(BUN)"; \
-	else \
-		$(MAKE) install; \
-	fi
-	@$(MAKE) restart
+		tmp="$$(mktemp -d)"; trap 'rm -rf "$$tmp"' EXIT INT TERM; \
+		git archive --format=tar "v$$version" | tar -xf - -C "$$tmp"; source_dir="$$tmp"; \
+	fi; \
+	test -d "$(INSTALL_DIR)" || { echo "Installation not found at $(INSTALL_DIR); run 'make install' first."; exit 1; }; \
+	echo "[update] Syncing application source only; preserving $(INSTALL_DIR)/.env and systemd configuration."; \
+	rm -rf "$(INSTALL_DIR)/src"; cp -a "$$source_dir/src" "$(INSTALL_DIR)/src"; \
+	install -m 0644 "$$source_dir/package.json" "$$source_dir/bun.lock" "$$source_dir/tsconfig.json" "$(INSTALL_DIR)/"; \
+	cd "$(INSTALL_DIR)" && "$(INSTALL_DIR)/bin/bun" install --production --frozen-lockfile; \
+	chown -R "$(SERVICE_USER):$(SERVICE_GROUP)" "$(INSTALL_DIR)/src" "$(INSTALL_DIR)/node_modules"; \
+	chown "$(SERVICE_USER):$(SERVICE_GROUP)" "$(INSTALL_DIR)/package.json" "$(INSTALL_DIR)/bun.lock" "$(INSTALL_DIR)/tsconfig.json"; \
+	echo "[update] Source synced. Restarting $(SERVICE_NAME)."; \
+	systemctl restart "$(SERVICE_NAME)"; \
+	echo "[update] Updated source; environment file was not modified."
+
 
 
 uninstall:

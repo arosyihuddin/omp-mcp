@@ -63,6 +63,8 @@ sudo make status
 
 `make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and optional integration systemd units, and enables **only `omp-mcp.service`** at boot. During setup, it generates `OMP_API_TOKEN` and `OMP_SUDO_ENCRYPTION_KEY` using random 256-bit values when they are not already configured, and prompts for the OAuth public HTTPS origin, username, and hidden password. Leave the public URL blank to keep OAuth disabled. Existing tokens and encryption keys are preserved when setup is rerun. The MCP server does not depend on the optional services and can run if either is missing or fails. The services run as the existing `pstar7` user; OMP MCP uses the Bun binary installed under `/opt/omp-mcp/bin`.
 
+The command sudo make update updates application source and production dependencies in /opt/omp-mcp, then restarts omp-mcp.service. It does not run the installer, rewrite .env, or change systemd unit configuration. To update from a published Git tag instead of the current checkout, use sudo make update VERSION=x.y.z. Use make install only when you intentionally need to install or reconfigure the service.
+
 The deployment includes the following services:
 
 - `omp-mcp.service` — the MCP server, listening on the configured Streamable HTTP endpoint.
