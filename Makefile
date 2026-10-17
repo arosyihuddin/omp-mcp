@@ -89,12 +89,14 @@ setup:
 		printf 'OMP default cwd ['"$$cwd"']: '; read value; cwd="$${value:-$$cwd}"; \
 		if [ -z "$$api_token" ]; then api_token="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_API_TOKEN (256-bit)."; fi; \
 		if [ -z "$$sudo_key" ]; then sudo_key="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_SUDO_ENCRYPTION_KEY (256-bit)."; fi; \
-		printf 'OAuth public HTTPS origin (blank disables OAuth, e.g. https://mcp.example.com): '; read value; oauth_url="$${value:-$$oauth_url}"; \
-		printf 'OMP OAuth username ['"$$oauth_user"']: '; read value; oauth_user="$${value:-$$oauth_user}"; \
-		if [ -n "$$oauth_password" ]; then printf 'OMP OAuth password [press Enter to keep existing; input hidden]: '; else printf 'OMP OAuth password (required; input hidden): '; fi; \
-		stty -echo; read oauth_input; stty echo; printf '\n'; if [ -n "$$oauth_input" ]; then oauth_password="$$oauth_input"; fi; \
-		[ -n "$$oauth_user" ] && [ -n "$$oauth_password" ] || { echo "OAuth username/password cannot be empty."; exit 1; }; \
-		$(MAKE) install SETUP_TRANSPORT="$transport" SETUP_HOST="$host" SETUP_PORT="$port" SETUP_CWD="$cwd"; \
+		printf 'OAuth public HTTPS origin (blank disables OAuth, e.g. https://mcp.example.com): '; read value; oauth_url="$value"; \
+		if [ -n "$$oauth_url" ]; then \
+			printf 'OMP OAuth username ['"$$oauth_user"']: '; read value; oauth_user="$${value:-$$oauth_user}"; \
+			if [ -n "$$oauth_password" ]; then printf 'OMP OAuth password [press Enter to keep existing; input hidden]: '; else printf 'OMP OAuth password (required; input hidden): '; fi; \
+			stty -echo; read oauth_input; stty echo; printf '\n'; if [ -n "$$oauth_input" ]; then oauth_password="$$oauth_input"; fi; \
+			[ -n "$$oauth_user" ] && [ -n "$$oauth_password" ] || { echo "OAuth username/password cannot be empty."; exit 1; }; \
+		else oauth_user="omp-mcp"; oauth_password=""; fi; \
+		$(MAKE) install SETUP_TRANSPORT="$$transport" SETUP_HOST="$$host" SETUP_PORT="$$port" SETUP_CWD="$$cwd"; \
 		SETUP_ENV_FILE="$(INSTALL_DIR)/.env" OMP_SETUP_API_TOKEN="$$api_token" OMP_SETUP_SUDO_KEY="$$sudo_key" OMP_SETUP_OAUTH_URL="$$oauth_url" OMP_SETUP_OAUTH_USER="$$oauth_user" OMP_SETUP_OAUTH_PASSWORD="$$oauth_password" /bin/sh $(INSTALL_DIR)/deploy/configure-setup-env.sh
 
 install:
