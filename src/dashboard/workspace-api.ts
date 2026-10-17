@@ -44,16 +44,17 @@ export class HttpError extends Error {
   }
 }
 
-/** Resolve a path relative to the user's home and refuse anything outside it. */
+/** Relative paths stay home-scoped for compatibility; absolute paths browse the filesystem. */
 export function workspacePath(input: string | null) {
+  if (typeof input === "string" && input.startsWith("/")) {
+    const target = resolve("/", input);
+    return { root: "/", target, relativePath: target };
+  }
   const root = homedir();
   const target = resolve(root, input ?? ".");
   const rel = relative(root, target);
   if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep))
-    throw new HttpError(
-      400,
-      "Workspace path is outside the user home directory",
-    );
+    throw new HttpError(400, "Workspace path is outside the user home directory");
   return { root, target, relativePath: rel || "." };
 }
 
@@ -230,7 +231,7 @@ export async function handleWorkspaceApi(
           const code = line.slice(0, 2);
           const filePath = line.slice(3);
           return {
-            path: relative(root, join(repo, filePath)),
+            path: requiredPath(url).startsWith("/") ? join(repo, filePath) : relative(root, join(repo, filePath)),
             name: basename(filePath),
             status: code,
             kind: code.includes("?")
@@ -242,7 +243,7 @@ export async function handleWorkspaceApi(
                   : "modified",
           };
         });
-      return json({ repo: relative(root, repo), files });
+      return json({ repo: requiredPath(url).startsWith("/") ? repo : relative(root, repo), files });
     }
 
     if (pathname === "/api/workspace/git-diff" && method === "GET") {
@@ -280,11 +281,11 @@ export async function handleWorkspaceApi(
     /* ---------------------------- file operations ---------------------------- */
     if (pathname === "/api/workspace" && method === "DELETE") {
       const requested = url.searchParams.get("path");
-      if (!requested || requested === ".")
+      if (!requested || requested === "." || requested === "/")
         throw new HttpError(400, "A workspace item is required");
       const { target, relativePath } = workspacePath(requested);
-      if (relativePath === ".")
-        throw new HttpError(400, "The home directory cannot be deleted");
+      if (relativePath === "." || target === "/")
+        throw new HttpError(400, "A workspace root cannot be deleted");
       const info = await stat(target).catch(() => {
         throw new HttpError(404, "Item not found");
       });
@@ -305,7 +306,7 @@ export async function handleWorkspaceApi(
       const { target, relativePath } = workspacePath(
         typeof body.path === "string" ? body.path : null,
       );
-      if (relativePath === ".") throw new HttpError(400, "A path is required");
+      if (relativePath === "." || target === "/") throw new HttpError(400, "A child path is required");
       validateName(basename(target));
       if (await exists(target))
         throw new HttpError(409, `“${basename(target)}” already exists`);
@@ -323,15 +324,15 @@ export async function handleWorkspaceApi(
       const { target, relativePath, root } = workspacePath(
         typeof body.path === "string" ? body.path : null,
       );
-      if (relativePath === ".")
-        throw new HttpError(400, "The home directory cannot be renamed");
+      if (relativePath === "." || target === "/")
+        throw new HttpError(400, "A workspace root cannot be renamed");
       if (!(await exists(target))) throw new HttpError(404, "Item not found");
       const next = join(dirname(target), newName);
       if (next === target) return json({ path: relativePath, name: newName });
       if (await exists(next))
         throw new HttpError(409, `“${newName}” already exists`);
       await rename(target, next);
-      const nextRel = relative(root, next);
+      const nextRel = root === "/" ? next : relative(root, next);
       rewritePaths(relativePath, nextRel);
       return json({ path: nextRel, name: newName });
     }
@@ -341,8 +342,8 @@ export async function handleWorkspaceApi(
       const { target, relativePath, root } = workspacePath(
         typeof body.path === "string" ? body.path : null,
       );
-      if (relativePath === ".")
-        throw new HttpError(400, "The home directory cannot be duplicated");
+      if (relativePath === "." || target === "/")
+        throw new HttpError(400, "A workspace root cannot be duplicated");
       const info = await stat(target).catch(() => {
         throw new HttpError(404, "Item not found");
       });
@@ -353,7 +354,7 @@ export async function handleWorkspaceApi(
         errorOnExist: true,
         force: false,
       });
-      return json({ path: relative(root, next), name }, 201);
+      return json({ path: root === "/" ? next : relative(root, next), name }, 201);
     }
 
     if (pathname === "/api/workspace/move" && method === "POST") {
@@ -364,8 +365,8 @@ export async function handleWorkspaceApi(
       const dest = workspacePath(
         typeof body.destDir === "string" ? body.destDir : ".",
       );
-      if (relativePath === ".")
-        throw new HttpError(400, "The home directory cannot be moved");
+      if (relativePath === "." || target === "/")
+        throw new HttpError(400, "A workspace root cannot be moved");
       if (!(await exists(target))) throw new HttpError(404, "Item not found");
       const destInfo = await stat(dest.target).catch(() => null);
       if (!destInfo?.isDirectory())
@@ -380,7 +381,7 @@ export async function handleWorkspaceApi(
           `“${basename(target)}” already exists in the destination`,
         );
       await rename(target, next);
-      const nextRel = relative(root, next);
+      const nextRel = root === "/" ? next : relative(root, next);
       rewritePaths(relativePath, nextRel);
       return json({ path: nextRel });
     }

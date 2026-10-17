@@ -116,6 +116,20 @@ export function saveRootCommandConfig(input: { rules: RootCommandRule[]; passwor
   writeStored({ rules, ...(encryptedPassword ? { encryptedPassword } : {}) });
   return getRootCommandConfig();
 }
+export function saveRootPassword(input: { password?: string; clearPassword?: boolean }) {
+  const current = readStored();
+  let encryptedPassword = current.encryptedPassword;
+  if (input.clearPassword) encryptedPassword = undefined;
+  if (typeof input.password === "string" && input.password.length > 0) {
+    if (input.password.length > 4096) throw new Error("Password sudo terlalu panjang.");
+    encryptedPassword = encrypt(input.password);
+  } else if (!input.clearPassword) {
+    throw new Error("Masukkan password sudo baru atau pilih hapus password.");
+  }
+  writeStored({ rules: current.rules, ...(encryptedPassword ? { encryptedPassword } : {}) });
+  return getRootCommandConfig();
+}
+
 export function isRootCommandWhitelisted(command: unknown, args: unknown): boolean {
   if (typeof command !== "string" || !/^[a-zA-Z0-9_.+-]+$/.test(command) || command.includes("..")) return false;
   if (!Array.isArray(args) || !args.every((arg) => typeof arg === "string")) return false;

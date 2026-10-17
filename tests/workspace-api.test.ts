@@ -21,6 +21,7 @@ const call = async (method: string, path: string, body?: unknown) => {
 
 beforeAll(async () => {
   process.env.OMP_DATA_DIR = dataDir;
+  process.env.OMP_SUDO_ENCRYPTION_KEY = "test-sudo-encryption-key-for-tests-123456";
   ({ handleDashboardRequest: handle } = await import("../src/dashboard"));
   const created = await call("POST", "/api/workspace/create", { path: sandbox, type: "directory" });
   expect(created.status).toBe(201);
@@ -67,6 +68,39 @@ describe("workspace api", () => {
     expect((await call("POST", "/api/workspace/create", { path: "../../evil", type: "file" })).status).toBe(400);
     expect((await call("GET", "/api/workspace/stat?path=../../etc")).status).toBe(400);
   });
+
+  test("can browse filesystem root without allowing root deletion", async () => {
+    const listing = await call("GET", "/api/workspace?path=%2F");
+    expect(listing.status).toBe(200);
+    expect(listing.data.path).toBe("/");
+    expect(Array.isArray(listing.data.items)).toBe(true);
+    expect((await call("DELETE", "/api/workspace?path=%2F")).status).toBe(400);
+    expect((await call("POST", "/api/workspace/rename", { path: "/", newName: "oops" })).status).toBe(400);
+  });
+
+  test("absolute filesystem paths stay absolute across file operations", async () => {
+    const rootPath = join(tmpdir(), `omp-absolute-test-${process.pid}`);
+    const file = `${rootPath}/a.txt`;
+    expect((await call("POST", "/api/workspace/create", { path: rootPath, type: "directory" })).data.path).toBe(rootPath);
+    expect((await call("POST", "/api/workspace/create", { path: file, type: "file" })).data.path).toBe(file);
+    const renamed = await call("POST", "/api/workspace/rename", { path: file, newName: "b.txt" });
+    expect(renamed.data.path).toBe(`${rootPath}/b.txt`);
+    expect((await call("DELETE", `/api/workspace?path=${encodeURIComponent(rootPath)}`)).status).toBe(200);
+    expect(existsSync(rootPath)).toBe(false);
+  });
+
+  test("sudo password is stored encrypted and never returned by the API", async () => {
+    const secret = "test-only-sudo-secret";
+    const saved = await call("PUT", "/api/root-commands/password", { password: secret });
+    expect(saved.status).toBe(200);
+    expect(saved.data.passwordConfigured).toBe(true);
+    expect(JSON.stringify(saved.data)).not.toContain(secret);
+    const config = await call("GET", "/api/root-commands");
+    expect(config.data.passwordConfigured).toBe(true);
+    expect(JSON.stringify(config.data)).not.toContain(secret);
+    expect((await call("PUT", "/api/root-commands/password", { clearPassword: true })).data.passwordConfigured).toBe(false);
+  });
+
 
   test("pins, favorites, recents, prefs follow renames and deletes", async () => {
     await call("POST", "/api/workspace/create", { path: `${sandbox}/proj`, type: "directory" });
