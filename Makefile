@@ -74,6 +74,8 @@ setup:
 	@set -a; if [ -f $(INSTALL_DIR)/.env ]; then . $(INSTALL_DIR)/.env; fi; set +a; \
 		transport="$${MCP_TRANSPORT:-http}"; host="$${MCP_HTTP_HOST:-127.0.0.1}"; port="$${MCP_HTTP_PORT:-48765}"; \
 		model="$${OMP_DEFAULT_MODEL:-onedoor/combo-deepseek-v4-flash}"; cwd="$${OMP_DEFAULT_CWD:-/var/lib/omp-mcp/workspace}"; \
+		api_token="$${OMP_API_TOKEN:-}"; sudo_key="$${OMP_SUDO_ENCRYPTION_KEY:-}"; oauth_url="$${MCP_PUBLIC_URL:-}"; \
+		oauth_user="$${OMP_OAUTH_USERNAME:-omp-mcp}"; oauth_password="$${OMP_OAUTH_PASSWORD:-}"; \
 		if [ -f $(INSTALL_DIR)/.env ]; then \
 			printf 'Existing configuration found in $(INSTALL_DIR)/.env. Change it? [y/N]: '; read change; \
 			case "$$change" in y|Y) ;; *) echo "Keeping existing configuration."; exit 0;; esac; \
@@ -86,7 +88,15 @@ setup:
 		[ "$$port" -ge 1 ] && [ "$$port" -le 65535 ] || { echo "Port must be between 1 and 65535."; exit 1; }; \
 		printf 'OMP default model ['"$$model"']: '; read value; model="$${value:-$$model}"; \
 		printf 'OMP default cwd ['"$$cwd"']: '; read value; cwd="$${value:-$$cwd}"; \
-		$(MAKE) install SETUP_TRANSPORT="$$transport" SETUP_HOST="$$host" SETUP_PORT="$$port" SETUP_MODEL="$$model" SETUP_CWD="$$cwd"
+		if [ -z "$$api_token" ]; then api_token="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_API_TOKEN (256-bit)."; fi; \
+		if [ -z "$$sudo_key" ]; then sudo_key="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_SUDO_ENCRYPTION_KEY (256-bit)."; fi; \
+		printf 'OAuth public HTTPS origin (blank disables OAuth) ['"$$oauth_url"']: '; read value; oauth_url="$${value:-$$oauth_url}"; \
+		printf 'OMP OAuth username ['"$$oauth_user"']: '; read value; oauth_user="$${value:-$$oauth_user}"; \
+		if [ -n "$$oauth_password" ]; then printf 'OMP OAuth password [press Enter to keep existing; input hidden]: '; else printf 'OMP OAuth password (required; input hidden): '; fi; \
+		stty -echo; read oauth_input; stty echo; printf '\n'; if [ -n "$$oauth_input" ]; then oauth_password="$$oauth_input"; fi; \
+		[ -n "$$oauth_user" ] && [ -n "$$oauth_password" ] || { echo "OAuth username/password cannot be empty."; exit 1; }; \
+		$(MAKE) install SETUP_TRANSPORT="$transport" SETUP_HOST="$host" SETUP_PORT="$port" SETUP_MODEL="$model" SETUP_CWD="$cwd"; \
+		SETUP_ENV_FILE="$(INSTALL_DIR)/.env" OMP_SETUP_API_TOKEN="$$api_token" OMP_SETUP_SUDO_KEY="$$sudo_key" OMP_SETUP_OAUTH_URL="$$oauth_url" OMP_SETUP_OAUTH_USER="$$oauth_user" OMP_SETUP_OAUTH_PASSWORD="$$oauth_password" /bin/sh $(INSTALL_DIR)/deploy/configure-setup-env.sh
 
 install:
 	@test "$$(id -u)" = "0" || (echo "Run 'make install' as root (use sudo)." && exit 1)

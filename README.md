@@ -61,7 +61,7 @@ sudo make start
 sudo make status
 ```
 
-`make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and optional integration systemd units, and enables **only `omp-mcp.service`** at boot. The MCP server does not depend on the optional services and can run if either is missing or fails. The services run as the existing `pstar7` user; OMP MCP uses the Bun binary installed under `/opt/omp-mcp/bin`.
+`make setup` installs the application to `/opt/omp-mcp`, creates the persistent data directory at `/var/lib/omp-mcp`, installs the OMP MCP and optional integration systemd units, and enables **only `omp-mcp.service`** at boot. During setup, it generates `OMP_API_TOKEN` and `OMP_SUDO_ENCRYPTION_KEY` using random 256-bit values when they are not already configured, and prompts for the OAuth public HTTPS origin, username, and hidden password. Leave the public URL blank to keep OAuth disabled. Existing tokens and encryption keys are preserved when setup is rerun. The MCP server does not depend on the optional services and can run if either is missing or fails. The services run as the existing `pstar7` user; OMP MCP uses the Bun binary installed under `/opt/omp-mcp/bin`.
 
 The deployment includes the following services:
 
@@ -174,7 +174,7 @@ OMP_DEFAULT_CWD=/var/lib/omp-mcp/workspace
 
 Set `MCP_PUBLIC_URL` to the public HTTPS origin that serves OMP-MCP, plus `OMP_OAUTH_USERNAME` and `OMP_OAUTH_PASSWORD` to enable OAuth authorization-code flow with PKCE (S256). Configure these secrets in the service environment; do not commit them. OAuth access tokens are stored as SHA-256 hashes in the control-plane SQLite database, expire after one hour, and use rotating refresh tokens. Dynamic client registration is enabled for public clients.
 
-For systemd installations, configure these values in `/opt/omp-mcp/.env`, then restart OMP-MCP. `make install` / `make update` now append any missing OAuth variable names to an existing `.env` without overwriting current settings; fill in the values manually to enable OAuth. A blank value keeps OAuth disabled.
+For systemd installations, `make setup` prompts for the public HTTPS origin, username, and password. Leave the public URL blank to keep OAuth disabled. To change these values later, edit `/opt/omp-mcp/.env` and restart OMP-MCP. `make install` / `make update` append missing OAuth variable names without overwriting current settings.
 
 The OAuth authorization server exposes `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. Remote clients should use the discovery metadata rather than hard-coding endpoint details.
 
