@@ -104,7 +104,7 @@ sudo make oauth
 The default deployment configuration uses Streamable HTTP:
 
 ```text
-http://127.0.0.1:3000/mcp
+http://127.0.0.1:48765/mcp
 ```
 
 To inspect logs:
@@ -156,7 +156,7 @@ LOG_LEVEL=info
 # stdio | http | both
 MCP_TRANSPORT=http
 MCP_HTTP_HOST=127.0.0.1
-MCP_HTTP_PORT=3000
+MCP_HTTP_PORT=48765
 MCP_HTTP_PATH=/mcp
 
 # Required for OMP Control and internal HTTP endpoints. The MCP endpoint also accepts OAuth access tokens when OAuth is configured.
@@ -280,7 +280,7 @@ The response contains the managed session metadata and status.
 The recommended server deployment uses MCP Streamable HTTP:
 
 ```text
-http://127.0.0.1:3000/mcp
+http://127.0.0.1:48765/mcp
 ```
 
 The endpoint is configured with `MCP_HTTP_HOST`, `MCP_HTTP_PORT`, and `MCP_HTTP_PATH`.
