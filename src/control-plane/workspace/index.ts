@@ -1,4 +1,3 @@
-import { userInfo } from "node:os";
 import { asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -32,37 +31,18 @@ function assertType(value: unknown): EntryType {
 export function getProfile() {
   const existing = db.select().from(profile).where(eq(profile.id, PROFILE_ID)).get();
   if (existing) return existing;
-  const stamp = now();
-  let username = "user";
-  try {
-    username = userInfo().username || username;
-  } catch {
-    /* keep fallback */
-  }
-  const row = {
-    id: PROFILE_ID,
-    displayName: username,
-    role: "Administrator",
-    avatarColor: AVATAR_COLORS[0],
-    createdAt: stamp,
-    updatedAt: stamp,
-  };
+  const row = { id: PROFILE_ID, displayName: "User", avatarColor: AVATAR_COLORS[0], updatedAt: now() };
   db.insert(profile).values(row).run();
   return row;
 }
 
-export function updateProfile(input: { displayName?: unknown; role?: unknown; avatarColor?: unknown }) {
+export function updateProfile(input: { displayName?: unknown; avatarColor?: unknown }) {
   const current = getProfile();
   const patch: Partial<typeof current> = { updatedAt: now() };
   if (input.displayName !== undefined) {
-    const name = assertPath(input.displayName, "displayName");
-    if (name.length > 48) throw new Error("displayName is too long (max 48)");
+    const name = typeof input.displayName === "string" ? input.displayName.trim() : "";
+    if (!name || name.length > 100) throw new Error("displayName must be 1–100 characters");
     patch.displayName = name;
-  }
-  if (input.role !== undefined) {
-    const role = typeof input.role === "string" ? input.role.trim() : "";
-    if (role.length > 48) throw new Error("role is too long (max 48)");
-    patch.role = role || null;
   }
   if (input.avatarColor !== undefined) {
     const color = typeof input.avatarColor === "string" ? input.avatarColor : "";

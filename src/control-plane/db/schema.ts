@@ -37,10 +37,8 @@ export const toolCallLogs = sqliteTable(
 
 export const profile = sqliteTable("profile", {
   id: text("id").primaryKey(),
-  displayName: text("display_name").notNull(),
-  role: text("role"),
+  displayName: text("display_name").notNull().default("User"),
   avatarColor: text("avatar_color"),
-  createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 

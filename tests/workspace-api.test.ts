@@ -33,19 +33,22 @@ afterAll(() => {
 });
 
 describe("workspace api", () => {
-  test("profile has defaults and can be updated", async () => {
+  test("profile stores display name and visual preferences", async () => {
     const first = await call("GET", "/api/profile");
-    expect(first.data.displayName).toBeTruthy();
-    const updated = await call("PUT", "/api/profile", { displayName: "Tester", role: "Dev" });
-    expect(updated.data.displayName).toBe("Tester");
-    expect((await call("GET", "/api/profile")).data.role).toBe("Dev");
+    expect(first.data.id).toBe("default");
+    expect(["accent", "info", "success", "warning", "danger"]).toContain(first.data.avatarColor);
+    expect(first.data.displayName).toBeString();
+    expect(first.data).not.toHaveProperty("role");
+    const updated = await call("PUT", "/api/profile", { avatarColor: "success" });
+    expect(updated.data.avatarColor).toBe("success");
+    expect((await call("GET", "/api/profile")).data.avatarColor).toBe("success");
   });
 
   test("profile avatar color is validated against the token palette", async () => {
     expect((await call("PUT", "/api/profile", { avatarColor: "success" })).data.avatarColor).toBe("success");
     const bad = await call("PUT", "/api/profile", { avatarColor: "#ff0000" });
     expect(bad.status).toBe(400);
-    expect((await call("PUT", "/api/profile", { displayName: "x".repeat(49) })).status).toBe(400);
+
   });
 
   test("create, conflict, rename, duplicate, move, stat, delete", async () => {

@@ -17,7 +17,7 @@ export function recordToolCallLog(input: ToolCallLogInput): ToolCallLog {
 }
 
 export function listToolCallLogs(limit = 100): ToolCallLog[] {
-  return db.select().from(toolCallLogs).orderBy(desc(toolCallLogs.timestamp)).limit(Math.min(Math.max(limit, 1), 200)).all();
+  return db.select().from(toolCallLogs).orderBy(desc(toolCallLogs.timestamp)).limit(Math.min(Math.max(Math.trunc(limit), 1), 100_000)).all();
 }
 
 
