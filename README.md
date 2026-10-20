@@ -39,17 +39,19 @@ Set `OMP_SUDO_ENCRYPTION_KEY` to a private, stable value of at least 32 characte
 bun install
 ```
 
-Run locally:
-
-```bash
-bun run start
-```
-
-For development with file watching:
+Run locally in development mode:
 
 ```bash
 bun run dev
 ```
+
+To build and run the production bundle locally:
+
+```bash
+bun run build
+bun run start
+```
+
 
 ### Production with systemd
 

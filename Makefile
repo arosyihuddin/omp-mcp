@@ -19,7 +19,7 @@ BUN := $(SERVICE_HOME)/.bun/bin/bun
 endif
 
 
-.PHONY: help setup install update uninstall purge start stop restart status logs token oauth ydotoold omp relay test typecheck release
+.PHONY: help setup install update build uninstall purge start stop restart status logs token oauth ydotoold omp relay test typecheck release
 
 help:
 	@echo "OMP MCP - available targets"
@@ -45,6 +45,7 @@ help:
 	@echo "  test        Run tests"
 	@echo "  typecheck   Run TypeScript typecheck"
 	@echo ""
+	@echo "  build       Bundle the server for production (external dependencies remain in node_modules)"
 	@echo "  release     Create and push a SemVer Git release (VERSION=x.y.z)"
 
 # These targets intentionally print secrets to the terminal. Run only in a trusted session.
@@ -85,9 +86,7 @@ setup:
 	@test "$$(id -u)" = "0" || (echo "Run 'make setup' as root (use sudo)." && exit 1)
 	@set -a; if [ -f $(INSTALL_DIR)/.env ]; then . $(INSTALL_DIR)/.env; fi; set +a; \
 		transport="$${MCP_TRANSPORT:-http}"; host="$${MCP_HTTP_HOST:-127.0.0.1}"; port="$${MCP_HTTP_PORT:-48765}"; \
-		cwd="$${OMP_DEFAULT_CWD:-/var/lib/omp-mcp/workspace}"; \
-		api_token="$${OMP_API_TOKEN:-}"; sudo_key="$${OMP_SUDO_ENCRYPTION_KEY:-}"; oauth_url="$${MCP_PUBLIC_URL:-}"; \
-		oauth_user="$${OMP_OAUTH_USERNAME:-omp-mcp}"; oauth_password="$${OMP_OAUTH_PASSWORD:-}"; \
+		api_token="$${OMP_API_TOKEN:-}"; sudo_key="$${OMP_SUDO_ENCRYPTION_KEY:-}"; oauth_url="$${MCP_PUBLIC_URL:-}"; oauth_user="$${OMP_OAUTH_USERNAME:-omp-mcp}"; oauth_password="$${OMP_OAUTH_PASSWORD:-}"; \
 		if [ -f $(INSTALL_DIR)/.env ]; then \
 			printf 'Existing configuration found in $(INSTALL_DIR)/.env. Change it? [y/N]: '; read change; \
 			case "$$change" in y|Y) ;; *) echo "Keeping existing configuration."; exit 0;; esac; \
@@ -98,17 +97,16 @@ setup:
 		printf 'MCP HTTP port ['"$$port"']: '; read value; port="$${value:-$$port}"; \
 		printf '%s\n' "$$port" | grep -Eq '^[0-9]+$$' || { echo "Invalid port: $$port"; exit 1; }; \
 		[ "$$port" -ge 1 ] && [ "$$port" -le 65535 ] || { echo "Port must be between 1 and 65535."; exit 1; }; \
-		printf 'OMP default cwd ['"$$cwd"']: '; read value; cwd="$${value:-$$cwd}"; \
 		if [ -z "$$api_token" ]; then api_token="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_API_TOKEN (256-bit)."; fi; \
 		if [ -z "$$sudo_key" ]; then sudo_key="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"; echo "Generated OMP_SUDO_ENCRYPTION_KEY (256-bit)."; fi; \
-		printf 'OAuth public HTTPS origin (blank disables OAuth, e.g. https://mcp.example.com): '; read value; oauth_url="$$value"; \
+		printf 'OAuth public HTTPS origin ['"$$oauth_url"'] (Enter keeps current; - disables): '; read value; if [ "$$value" = "-" ]; then oauth_url=""; elif [ -n "$$value" ]; then oauth_url="$$value"; fi; \
 		if [ -n "$$oauth_url" ]; then \
 			printf 'OMP OAuth username ['"$$oauth_user"']: '; read value; oauth_user="$${value:-$$oauth_user}"; \
 			if [ -n "$$oauth_password" ]; then printf 'OMP OAuth password [press Enter to keep existing; input hidden]: '; else printf 'OMP OAuth password (required; input hidden): '; fi; \
 			stty -echo; read oauth_input; stty echo; printf '\n'; if [ -n "$$oauth_input" ]; then oauth_password="$$oauth_input"; fi; \
 			[ -n "$$oauth_user" ] && [ -n "$$oauth_password" ] || { echo "OAuth username/password cannot be empty."; exit 1; }; \
 		else oauth_user="omp-mcp"; oauth_password=""; fi; \
-		$(MAKE) install SETUP_TRANSPORT="$$transport" SETUP_HOST="$$host" SETUP_PORT="$$port" SETUP_CWD="$$cwd"; \
+		$(MAKE) install SETUP_TRANSPORT="$$transport" SETUP_HOST="$$host" SETUP_PORT="$$port"; \
 		SETUP_ENV_FILE="$(INSTALL_DIR)/.env" OMP_SETUP_API_TOKEN="$$api_token" OMP_SETUP_SUDO_KEY="$$sudo_key" OMP_SETUP_OAUTH_URL="$$oauth_url" OMP_SETUP_OAUTH_USER="$$oauth_user" OMP_SETUP_OAUTH_PASSWORD="$$oauth_password" /bin/sh $(INSTALL_DIR)/deploy/configure-setup-env.sh
 
 install:
@@ -131,10 +129,9 @@ install:
 	@if [ -n "$(SETUP_TRANSPORT)" ]; then \
 		sed -i 's|^MCP_TRANSPORT=.*|MCP_TRANSPORT=$(SETUP_TRANSPORT)|' $(INSTALL_DIR)/.env; \
 		sed -i 's|^MCP_HTTP_HOST=.*|MCP_HTTP_HOST=$(SETUP_HOST)|' $(INSTALL_DIR)/.env; \
-		sed -i 's|^MCP_HTTP_PORT=.*|MCP_HTTP_PORT=$(SETUP_PORT)|' $(INSTALL_DIR)/.env; \
-		sed -i 's|^OMP_DEFAULT_CWD=.*|OMP_DEFAULT_CWD=$(SETUP_CWD)|' $(INSTALL_DIR)/.env; \
 	fi
-	cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun install --production --frozen-lockfile
+	cd $(INSTALL_DIR) && $(INSTALL_DIR)/bin/bun install --production --frozen-lockfile && PATH="$(INSTALL_DIR)/bin:$$PATH" $(INSTALL_DIR)/bin/bun run build
+	rm -rf $(INSTALL_DIR)/src
 	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(INSTALL_DIR)
 	chown -R $(SERVICE_USER):$(SERVICE_GROUP) $(DATA_DIR)
 	chmod 0750 $(INSTALL_DIR)
@@ -143,7 +140,7 @@ install:
 	install -m 0644 deploy/systemd/ydotoold.service.example $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
 	install -m 0644 deploy/systemd/omp-mcp-browser-relay.service.example $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|; s|^Environment=HOME=.*|Environment=HOME=$(SERVICE_HOME)|; s|^Environment=PATH=.*|Environment=PATH=$(INSTALL_DIR)/bin:/usr/local/bin:/usr/bin:/bin|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
-	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run src/index.ts|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
+	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run dist/index.js|' $(SYSTEMD_DIR)/$(SERVICE_NAME)
 	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|' $(SYSTEMD_DIR)/$(YDOTOOL_SERVICE_NAME)
 	sed -i 's|^User=.*|User=$(SERVICE_USER)|; s|^Group=.*|Group=$(SERVICE_GROUP)|; s|^Environment=HOME=.*|Environment=HOME=$(SERVICE_HOME)|; s|^Environment=PATH=.*|Environment=PATH=$(SERVICE_HOME)/.bun/bin:/usr/local/bin:/usr/bin:/bin|; s|^ExecStart=.*|ExecStart=$(SERVICE_HOME)/.bun/bin/omp browser-relay|' $(SYSTEMD_DIR)/$(RELAY_SERVICE_NAME)
 	systemctl daemon-reload
@@ -164,15 +161,19 @@ update:
 		git archive --format=tar "v$$version" | tar -xf - -C "$$tmp"; source_dir="$$tmp"; \
 	fi; \
 	test -d "$(INSTALL_DIR)" || { echo "Installation not found at $(INSTALL_DIR); run 'make install' first."; exit 1; }; \
-	echo "[update] Syncing application source only; preserving $(INSTALL_DIR)/.env and systemd configuration."; \
-	rm -rf "$(INSTALL_DIR)/src"; cp -a "$$source_dir/src" "$(INSTALL_DIR)/src"; \
+	echo "[update] Syncing source to build a production bundle; preserving $(INSTALL_DIR)/.env and other systemd settings."; \
+	rm -rf "$(INSTALL_DIR)/src" "$(INSTALL_DIR)/dist"; cp -a "$$source_dir/src" "$(INSTALL_DIR)/src"; \
 	install -m 0644 "$$source_dir/package.json" "$$source_dir/bun.lock" "$$source_dir/tsconfig.json" "$(INSTALL_DIR)/"; \
 	cd "$(INSTALL_DIR)" && "$(INSTALL_DIR)/bin/bun" install --production --frozen-lockfile; \
-	chown -R "$(SERVICE_USER):$(SERVICE_GROUP)" "$(INSTALL_DIR)/src" "$(INSTALL_DIR)/node_modules"; \
+	PATH="$(INSTALL_DIR)/bin:$$PATH" "$(INSTALL_DIR)/bin/bun" run build; \
+	rm -rf "$(INSTALL_DIR)/src"; \
+	chown -R "$(SERVICE_USER):$(SERVICE_GROUP)" "$(INSTALL_DIR)/dist" "$(INSTALL_DIR)/node_modules"; \
 	chown "$(SERVICE_USER):$(SERVICE_GROUP)" "$(INSTALL_DIR)/package.json" "$(INSTALL_DIR)/bun.lock" "$(INSTALL_DIR)/tsconfig.json"; \
-	echo "[update] Source synced. Restarting $(SERVICE_NAME)."; \
+	echo "[update] Build complete. Updating systemd ExecStart and restarting $(SERVICE_NAME)."; \
+	sed -i 's|^ExecStart=.*|ExecStart=$(INSTALL_DIR)/bin/bun run dist/index.js|' "$(SYSTEMD_DIR)/$(SERVICE_NAME)"; \
+	systemctl daemon-reload; \
 	systemctl restart "$(SERVICE_NAME)"; \
-	echo "[update] Updated source; environment file was not modified."
+	echo "[update] Updated build artifact; environment file was not modified."
 
 
 
@@ -219,6 +220,9 @@ test:
 
 typecheck:
 	bun run typecheck
+
+build:
+	bun run build
 
 release:
 	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=0.1.0" && exit 1)

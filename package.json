@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dev": "OMP_DATA_DIR=./data bun --watch src/index.ts",
+    "start": "bun run dist/index.js",
+    "dev": "bun --watch src/index.ts",
+    "build": "NODE_ENV=production bun build --target=bun --packages=external --outfile=dist/index.js src/index.ts && mkdir -p dist/migrations && cp -a src/control-plane/db/migrations/. dist/migrations/",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

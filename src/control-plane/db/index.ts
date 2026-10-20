@@ -4,8 +4,12 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "./schema";
+import { config } from "../../lib/config";
 
-const dataDir = resolve(process.env.OMP_DATA_DIR ?? "/var/lib/omp-mcp");
+const dataDir = resolve(
+  config.nodeEnv == "development" ? "./data" : "/var/lib/omp-mcp",
+);
+
 mkdirSync(dataDir, { recursive: true });
 
 export const sqlite = new Database(resolve(dataDir, "control-plane.db"));
