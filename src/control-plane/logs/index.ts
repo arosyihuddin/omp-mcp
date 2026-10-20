@@ -16,6 +16,13 @@ export function recordToolCallLog(input: ToolCallLogInput): ToolCallLog {
   return saved;
 }
 
+export function updateToolCallLog(id: string, patch: Partial<Omit<ToolCallLogInput, "timestamp" | "requestId" | "sessionId" | "toolName">>): ToolCallLog | undefined {
+  db.update(toolCallLogs).set(patch).where(eq(toolCallLogs.id, id)).run();
+  const saved = db.select().from(toolCallLogs).where(eq(toolCallLogs.id, id)).get();
+  if (saved) emitDashboardEvent({ type: "tool_call.updated", data: saved });
+  return saved;
+}
+
 export function listToolCallLogs(limit = 100): ToolCallLog[] {
   return db.select().from(toolCallLogs).orderBy(desc(toolCallLogs.timestamp)).limit(Math.min(Math.max(Math.trunc(limit), 1), 100_000)).all();
 }

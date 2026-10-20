@@ -3,7 +3,7 @@ import type { AnySchema, ZodRawShapeCompat } from "@modelcontextprotocol/sdk/ser
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ensureToolConfig, isToolExposed, subscribeToolExposure } from "../../control-plane/tools/exposure";
-import { recordToolCallLog } from "../../control-plane/logs";
+import { recordToolCallLog, updateToolCallLog } from "../../control-plane/logs";
 import { getToolPermission } from "../../control-plane/tools/permissions";
 import { evaluateCustomPermissionRule } from "../../control-plane/tools/custom-rules";
 import { getApprovalDecisionMessage, requestApproval } from "../../approval";
@@ -54,7 +54,21 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
     const startedAt = performance.now();
     let serializedArgs = "{}";
     try { serializedArgs = JSON.stringify(args); } catch { serializedArgs = String(args); }
+    let logId: string | undefined;
     try {
+      const log = recordToolCallLog({
+        timestamp: new Date().toISOString(),
+        requestId: String(extra.requestId),
+        sessionId: extra.sessionId,
+        toolName: name,
+        status: "waiting_approval",
+        approval: null,
+        durationMs: null,
+        arguments: serializedArgs,
+        result: null,
+        error: null,
+      });
+      logId = log.id;
       const annotations = definition.annotations;
       const risk = name.startsWith("omp_") ? "isolated" : annotations?.readOnlyHint ? "low" : (annotations?.openWorldHint || ["bash", "eval", "sudo_exec", "mouse_click", "mouse_drag", "keyboard_press", "keyboard_hotkey", "keyboard_type"].includes(name)) ? "high" : "medium";
       const toolPermission = getToolPermission(name, risk);
@@ -64,15 +78,9 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
         : null;
       if (policy === "blocked" || customAction === "block") {
         const message = `Tool '${name}' is blocked by the OMP-MCP permission policy.`;
-        recordToolCallLog({
-          timestamp: new Date().toISOString(),
-          requestId: String(extra.requestId),
-          sessionId: extra.sessionId,
-          toolName: name,
+        updateToolCallLog(logId, {
           status: "error",
-          approval: null,
           durationMs: Math.round(performance.now() - startedAt),
-          arguments: serializedArgs,
           result: JSON.stringify({ error: message, blocked: true }),
           error: message,
         });
@@ -93,35 +101,28 @@ export function registerExposedTool<OutputArgs extends ZodRawShapeCompat | AnySc
           signal: extra.signal,
           reason: policy === "custom" ? "Custom permission rule requires approval." : "Tool permission policy requires approval before execution.",
         });
-        if (!decision.approved) return errorResult(getApprovalDecisionMessage(decision.status));
+        if (!decision.approved) {
+          const message = getApprovalDecisionMessage(decision.status);
+          updateToolCallLog(logId, { status: "error", durationMs: Math.round(performance.now() - startedAt), error: message, result: JSON.stringify({ error: message }) });
+          return errorResult(message);
+        }
       }
+      updateToolCallLog(logId, { status: "running" });
       const response = hasArgs ? await genericHandler(args, extra) : await genericHandler(extra);
       let serializedResult = "";
       try { serializedResult = JSON.stringify(response.content); } catch { serializedResult = String(response.content); }
-      recordToolCallLog({
-        timestamp: new Date().toISOString(),
-        requestId: String(extra.requestId),
-        sessionId: extra.sessionId,
-        toolName: name,
+      updateToolCallLog(logId, {
         status: response.isError ? "error" : "success",
-        approval: null,
         durationMs: Math.round(performance.now() - startedAt),
-        arguments: serializedArgs,
         result: serializedResult.length > 20000 ? serializedResult.slice(0, 20000) + "…" : serializedResult,
         error: response.isError ? serializedResult : null,
       });
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      recordToolCallLog({
-        timestamp: new Date().toISOString(),
-        requestId: String(extra.requestId),
-        sessionId: extra.sessionId,
-        toolName: name,
+      if (logId) updateToolCallLog(logId, {
         status: "error",
-        approval: null,
         durationMs: Math.round(performance.now() - startedAt),
-        arguments: serializedArgs,
         result: null,
         error: message,
       });
