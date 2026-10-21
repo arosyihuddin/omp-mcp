@@ -96,7 +96,6 @@ class TerminalManager {
     const now = new Date().toISOString();
     const decoder = new TextDecoder();
     let record: TerminalRecord | undefined;
-    let startupLineBuffer: string | null = "";
     const env = processEnv();
     const shell = env.SHELL?.trim() || "/bin/sh";
     const process = Bun.spawn([shell, "-i"], {
@@ -113,26 +112,10 @@ class TerminalManager {
           const text = decoder.decode(data, { stream: true });
           if (!record || !text) return;
 
-          if (startupLineBuffer !== null) {
-            startupLineBuffer += text;
-            const newlineMatch = startupLineBuffer.match(/\r?\n/);
-            if (!newlineMatch || newlineMatch.index === undefined) return;
-
-            const newlineEnd = newlineMatch.index + newlineMatch[0].length;
-            const firstLine = startupLineBuffer.slice(0, newlineMatch.index);
-            const remainder = startupLineBuffer.slice(newlineEnd);
-
-            if (/^[ \t]+$/.test(firstLine)) {
-              startupLineBuffer = null;
-              if (remainder) this.broadcast(record, remainder);
-            } else {
-              const output = startupLineBuffer;
-              startupLineBuffer = null;
-              this.broadcast(record, output);
-            }
-            return;
-          }
-
+          // Terminal output must be forwarded immediately, including escape-sequence
+          // queries that may not contain a newline. Buffering startup output until a
+          // newline can prevent xterm.js from seeing Fish's DA1 query in time; this
+          // becomes especially visible when the WebSocket crosses a network tunnel.
           this.broadcast(record, text);
         },
       },
@@ -265,7 +248,14 @@ class TerminalManager {
 }
 
 function processEnv() {
-  return { ...Bun.env };
+  const env = { ...Bun.env };
+  // Do not leak this OMP-MCP server's own listener settings into interactive
+  // shells. They would override a workspace's .env when launching Bun again.
+  delete env.MCP_TRANSPORT;
+  delete env.MCP_HTTP_HOST;
+  delete env.MCP_HTTP_PORT;
+  delete env.MCP_HTTP_PATH;
+  return env;
 }
 
 export const terminalManager = new TerminalManager();

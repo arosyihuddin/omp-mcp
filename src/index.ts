@@ -65,7 +65,9 @@ if (config.transport === "http" || config.transport === "both") {
         try {
           const payload = JSON.parse(typeof message === "string" ? message : new TextDecoder().decode(message));
           const terminalId = (ws.data as { terminalId: string }).terminalId;
-          if (payload.type === "input" && typeof payload.data === "string") {
+          if (payload.type === "ping") {
+            ws.send(JSON.stringify({ type: "pong", time: payload.time }));
+          } else if (payload.type === "input" && typeof payload.data === "string") {
             terminalManager.input(terminalId, payload.data);
           } else if (payload.type === "resize") {
             terminalManager.resize(terminalId, Number(payload.cols), Number(payload.rows));
